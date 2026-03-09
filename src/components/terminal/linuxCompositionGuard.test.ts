@@ -7,6 +7,21 @@ import {
   noteLinuxTerminalCompositionText,
 } from "./linuxCompositionGuard";
 
+const spacingAccentSamples: Array<[accent: string, composed: string]> = [
+  ["´", "é"],
+  ["`", "è"],
+  ["^", "ê"],
+  ["~", "ã"],
+  ["¨", "ë"],
+  ["¸", "ç"],
+  ["ˇ", "ž"],
+  ["˘", "ğ"],
+  ["¯", "ō"],
+  ["˚", "å"],
+];
+
+const standaloneAccentSamples = ["´", "`", "^", "~", "¨", "¸", "ˇ", "˘", "¯", "˚", "˜", "˝"];
+
 describe("linuxCompositionGuard", () => {
   it("ignores regular input outside composition", () => {
     const state = createLinuxTerminalCompositionState();
@@ -49,6 +64,30 @@ describe("linuxCompositionGuard", () => {
     expect(filterLinuxTerminalCompositionData(state, "´", 190)).toBe("´");
   });
 
+  for (const [accent, composed] of spacingAccentSamples) {
+    it(`strips leading ${accent} artifact before ${composed}`, () => {
+      const state = createLinuxTerminalCompositionState();
+
+      noteLinuxTerminalCompositionStart(state);
+      noteLinuxTerminalCompositionEnd(state, 200);
+      noteLinuxTerminalCompositionText(state, composed, "insertText", 210);
+
+      expect(filterLinuxTerminalCompositionData(state, `${accent}${composed}`, 220)).toBe(composed);
+    });
+  }
+
+  for (const accent of standaloneAccentSamples) {
+    it(`keeps standalone spacing accent ${accent}`, () => {
+      const state = createLinuxTerminalCompositionState();
+
+      noteLinuxTerminalCompositionStart(state);
+      noteLinuxTerminalCompositionEnd(state, 230);
+      noteLinuxTerminalCompositionText(state, accent, "insertText", 240);
+
+      expect(filterLinuxTerminalCompositionData(state, accent, 250)).toBe(accent);
+    });
+  }
+
   it("preserves standalone space right after the composition commits", () => {
     const state = createLinuxTerminalCompositionState();
 
@@ -90,5 +129,15 @@ describe("linuxCompositionGuard", () => {
     expect(filterLinuxTerminalCompositionData(state, "é", 320)).toBe("é");
     expect(filterLinuxTerminalCompositionData(state, "é", 340)).toBeNull();
     expect(filterLinuxTerminalCompositionData(state, "é", 450)).toBe("é");
+  });
+
+  it("drops combining-mark-only artifacts after composition", () => {
+    const state = createLinuxTerminalCompositionState();
+
+    noteLinuxTerminalCompositionStart(state);
+    noteLinuxTerminalCompositionEnd(state, 500);
+    noteLinuxTerminalCompositionText(state, "é", "insertText", 510);
+
+    expect(filterLinuxTerminalCompositionData(state, "\u0301", 520)).toBeNull();
   });
 });

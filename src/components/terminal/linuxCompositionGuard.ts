@@ -9,7 +9,30 @@ export interface LinuxTerminalCompositionState {
 
 const COMPOSITION_WINDOW_MS = 250;
 const DUPLICATE_SUPPRESSION_MS = 80;
-const DEAD_KEY_ARTIFACT_CLASS = `[\\s"'~^\`´¨\\u0300-\\u036f]`;
+const DEAD_KEY_SPACING_ARTIFACTS = [
+  "'",
+  "\"",
+  "`",
+  "~",
+  "^",
+  "¨",
+  "¯",
+  "´",
+  "¸",
+  "°",
+  "ˆ",
+  "ˇ",
+  "ˉ",
+  "ˊ",
+  "ˋ",
+  "˘",
+  "˙",
+  "˚",
+  "˛",
+  "˜",
+  "˝",
+].map(escapeForRegexCharClass).join("");
+const DEAD_KEY_ARTIFACT_CLASS = `[\\s\\p{M}${DEAD_KEY_SPACING_ARTIFACTS}]`;
 const DEAD_KEY_ARTIFACT_ONLY_RE = new RegExp(`^${DEAD_KEY_ARTIFACT_CLASS}+$`, "u");
 const DEAD_KEY_LEADING_ARTIFACTS_RE = new RegExp(`^${DEAD_KEY_ARTIFACT_CLASS}+`, "u");
 
@@ -146,4 +169,8 @@ function collapseRepeatedPrefix(data: string, expected: string): string | null {
     return null;
   }
   return expected + data.slice(offset);
+}
+
+function escapeForRegexCharClass(value: string): string {
+  return value.replace(/[\\\]\-\^]/g, "\\$&");
 }
