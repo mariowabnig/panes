@@ -24,6 +24,7 @@ use crate::{
         protocol::{RemoteCommandRequest, RemoteEventEnvelope},
         router::{grant_allows_scope, RemoteCommandRouter},
     },
+    state::AppState,
     terminal::TerminalManager,
 };
 
@@ -88,6 +89,24 @@ impl RemoteHostManager {
         bind_addr: Option<&str>,
         terminals: Arc<TerminalManager>,
     ) -> Result<RemoteHostStatusDto, String> {
+        self.start_inner(bind_addr, terminals, None).await
+    }
+
+    pub async fn start_with_state(
+        &self,
+        bind_addr: Option<&str>,
+        state: AppState,
+    ) -> Result<RemoteHostStatusDto, String> {
+        self.start_inner(bind_addr, state.terminals.clone(), Some(state))
+            .await
+    }
+
+    async fn start_inner(
+        &self,
+        bind_addr: Option<&str>,
+        terminals: Arc<TerminalManager>,
+        state: Option<AppState>,
+    ) -> Result<RemoteHostStatusDto, String> {
         let mut running = self.running.lock().await;
         if let Some(host) = running.as_ref() {
             return Ok(RemoteHostStatusDto {
@@ -105,6 +124,7 @@ impl RemoteHostManager {
             listener,
             self.db.clone(),
             terminals,
+            state,
             self.event_tx.clone(),
             shutdown.clone(),
         ));
@@ -140,6 +160,7 @@ async fn run_remote_host(
     listener: TcpListener,
     db: Database,
     terminals: Arc<TerminalManager>,
+    state: Option<AppState>,
     event_tx: broadcast::Sender<RemoteEventEnvelope>,
     shutdown: CancellationToken,
 ) {
@@ -151,11 +172,12 @@ async fn run_remote_host(
                     Ok((stream, peer_addr)) => {
                         let db = db.clone();
                         let terminals = terminals.clone();
+                        let state = state.clone();
                         let event_tx = event_tx.clone();
                         let shutdown = shutdown.clone();
                         tokio::spawn(async move {
                             if let Err(error) =
-                                handle_connection(stream, db, terminals, event_tx, shutdown).await
+                                handle_connection(stream, db, terminals, state, event_tx, shutdown).await
                             {
                                 log::warn!("remote host connection failed for {peer_addr}: {error}");
                             }
@@ -176,6 +198,7 @@ async fn handle_connection(
     stream: TcpStream,
     db: Database,
     terminals: Arc<TerminalManager>,
+    state: Option<AppState>,
     event_tx: broadcast::Sender<RemoteEventEnvelope>,
     shutdown: CancellationToken,
 ) -> anyhow::Result<()> {
@@ -185,7 +208,10 @@ async fn handle_connection(
     .await
     .context("failed to accept remote websocket handshake")?;
 
-    let router = RemoteCommandRouter::new(db.clone(), terminals);
+    let router = match state {
+        Some(state) => RemoteCommandRouter::new(db.clone(), terminals).with_state(state),
+        None => RemoteCommandRouter::new(db.clone(), terminals),
+    };
     let (mut write, mut read) = websocket.split();
     let grant = match authenticate_connection(&mut write, &mut read, &router).await? {
         Some(grant) => grant,

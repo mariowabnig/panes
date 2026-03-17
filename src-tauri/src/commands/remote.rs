@@ -76,7 +76,7 @@ pub async fn start_remote_host(
 ) -> Result<RemoteHostStatusDto, String> {
     state
         .remote_host
-        .start(bind_addr.as_deref(), state.terminals.clone())
+        .start_with_state(bind_addr.as_deref(), state.inner().clone())
         .await
 }
 

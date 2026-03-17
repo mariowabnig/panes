@@ -948,6 +948,10 @@ fn normalize_attachments(
 
 #[tauri::command]
 pub async fn cancel_turn(state: State<'_, AppState>, thread_id: String) -> Result<(), String> {
+    cancel_turn_inner(state.inner(), thread_id).await
+}
+
+pub(crate) async fn cancel_turn_inner(state: &AppState, thread_id: String) -> Result<(), String> {
     state.turns.cancel(&thread_id).await;
 
     let db = state.db.clone();
@@ -976,7 +980,7 @@ pub async fn respond_to_approval(
     respond_to_approval_inner(state.inner(), thread_id, approval_id, response).await
 }
 
-async fn respond_to_approval_inner(
+pub(crate) async fn respond_to_approval_inner(
     state: &AppState,
     thread_id: String,
     approval_id: String,

@@ -68,6 +68,15 @@ pub async fn terminal_write(
     session_id: String,
     data: String,
 ) -> Result<(), String> {
+    terminal_write_inner(state.inner(), workspace_id, session_id, data).await
+}
+
+pub(crate) async fn terminal_write_inner(
+    state: &AppState,
+    workspace_id: String,
+    session_id: String,
+    data: String,
+) -> Result<(), String> {
     state
         .terminals
         .write(&workspace_id, &session_id, data)
@@ -82,6 +91,15 @@ pub async fn terminal_write_bytes(
     session_id: String,
     data: Vec<u8>,
 ) -> Result<(), String> {
+    terminal_write_bytes_inner(state.inner(), workspace_id, session_id, data).await
+}
+
+pub(crate) async fn terminal_write_bytes_inner(
+    state: &AppState,
+    workspace_id: String,
+    session_id: String,
+    data: Vec<u8>,
+) -> Result<(), String> {
     state
         .terminals
         .write_bytes(&workspace_id, &session_id, data)
@@ -92,6 +110,27 @@ pub async fn terminal_write_bytes(
 #[tauri::command]
 pub async fn terminal_resize(
     state: State<'_, AppState>,
+    workspace_id: String,
+    session_id: String,
+    cols: u16,
+    rows: u16,
+    pixel_width: u16,
+    pixel_height: u16,
+) -> Result<(), String> {
+    terminal_resize_inner(
+        state.inner(),
+        workspace_id,
+        session_id,
+        cols,
+        rows,
+        pixel_width,
+        pixel_height,
+    )
+    .await
+}
+
+pub(crate) async fn terminal_resize_inner(
+    state: &AppState,
     workspace_id: String,
     session_id: String,
     cols: u16,

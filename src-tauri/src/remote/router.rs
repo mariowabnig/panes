@@ -5,9 +5,11 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::{
+    commands::{chat, terminal},
     db::{self, Database},
     models::{MessageWindowCursorDto, RemoteDeviceGrantDto},
     remote::protocol::{RemoteCommandRequest, RemoteCommandResponse},
+    state::AppState,
     terminal::TerminalManager,
 };
 
@@ -18,11 +20,21 @@ const REMOTE_MESSAGE_WINDOW_MAX_LIMIT: usize = 400;
 pub struct RemoteCommandRouter {
     db: Database,
     terminals: Arc<TerminalManager>,
+    runtime_state: Option<AppState>,
 }
 
 impl RemoteCommandRouter {
     pub fn new(db: Database, terminals: Arc<TerminalManager>) -> Self {
-        Self { db, terminals }
+        Self {
+            db,
+            terminals,
+            runtime_state: None,
+        }
+    }
+
+    pub fn with_state(mut self, state: AppState) -> Self {
+        self.runtime_state = Some(state);
+        self
     }
 
     pub async fn authenticate_device_grant(
@@ -122,6 +134,32 @@ impl RemoteCommandRouter {
                 })
                 .await
             }
+            "cancel_turn" => {
+                require_scope(grant, "thread.read")?;
+                require_scope(grant, "controller.write")?;
+                let args: ThreadArgs = parse_args(args)?;
+                self.require_controller_lease(grant, "thread", &args.thread_id)
+                    .await?;
+                let state = self.runtime_state()?;
+                chat::cancel_turn_inner(state, args.thread_id).await?;
+                Ok(Value::Null)
+            }
+            "respond_to_approval" => {
+                require_scope(grant, "thread.read")?;
+                require_scope(grant, "controller.write")?;
+                let args: ApprovalResponseArgs = parse_args(args)?;
+                self.require_controller_lease(grant, "thread", &args.thread_id)
+                    .await?;
+                let state = self.runtime_state()?;
+                chat::respond_to_approval_inner(
+                    state,
+                    args.thread_id,
+                    args.approval_id,
+                    args.response,
+                )
+                .await?;
+                Ok(Value::Null)
+            }
             "list_remote_device_grants" => {
                 require_scope(grant, "remote.admin")?;
                 self.run_json(db::remote::list_device_grants).await
@@ -201,6 +239,57 @@ impl RemoteCommandRouter {
                 })
                 .await
             }
+            "terminal_write" => {
+                require_scope(grant, "terminal.read")?;
+                require_scope(grant, "controller.write")?;
+                let args: TerminalWriteArgs = parse_args(args)?;
+                self.require_controller_lease(grant, "workspace", &args.workspace_id)
+                    .await?;
+                let state = self.runtime_state()?;
+                terminal::terminal_write_inner(
+                    state,
+                    args.workspace_id,
+                    args.session_id,
+                    args.data,
+                )
+                .await?;
+                Ok(Value::Null)
+            }
+            "terminal_write_bytes" => {
+                require_scope(grant, "terminal.read")?;
+                require_scope(grant, "controller.write")?;
+                let args: TerminalWriteBytesArgs = parse_args(args)?;
+                self.require_controller_lease(grant, "workspace", &args.workspace_id)
+                    .await?;
+                let state = self.runtime_state()?;
+                terminal::terminal_write_bytes_inner(
+                    state,
+                    args.workspace_id,
+                    args.session_id,
+                    args.data,
+                )
+                .await?;
+                Ok(Value::Null)
+            }
+            "terminal_resize" => {
+                require_scope(grant, "terminal.read")?;
+                require_scope(grant, "controller.write")?;
+                let args: TerminalResizeArgs = parse_args(args)?;
+                self.require_controller_lease(grant, "workspace", &args.workspace_id)
+                    .await?;
+                let state = self.runtime_state()?;
+                terminal::terminal_resize_inner(
+                    state,
+                    args.workspace_id,
+                    args.session_id,
+                    args.cols,
+                    args.rows,
+                    args.pixel_width,
+                    args.pixel_height,
+                )
+                .await?;
+                Ok(Value::Null)
+            }
             _ => Err(format!("unknown remote command: {command}")),
         }
     }
@@ -221,6 +310,40 @@ impl RemoteCommandRouter {
     {
         let value = future.await?;
         to_json(value)
+    }
+
+    async fn require_controller_lease(
+        &self,
+        grant: &RemoteDeviceGrantDto,
+        scope_type: &str,
+        scope_id: &str,
+    ) -> Result<(), String> {
+        let scope_type = scope_type.to_string();
+        let scope_id = scope_id.to_string();
+        let lookup_scope_type = scope_type.clone();
+        let lookup_scope_id = scope_id.clone();
+        let lease = run_db(self.db.clone(), move |db| {
+            db::remote::get_active_controller_lease(db, &lookup_scope_type, &lookup_scope_id)
+        })
+        .await?;
+
+        match lease {
+            Some(lease) if lease.device_grant_id == grant.id => Ok(()),
+            Some(lease) => Err(format!(
+                "controller lease for {}:{} is held by device grant {}",
+                lease.scope_type, lease.scope_id, lease.device_grant_id
+            )),
+            None => Err(format!(
+                "remote controller lease required for {}:{}",
+                scope_type, scope_id
+            )),
+        }
+    }
+
+    fn runtime_state(&self) -> Result<&AppState, String> {
+        self.runtime_state
+            .as_ref()
+            .ok_or_else(|| "remote host runtime state is unavailable".to_string())
     }
 }
 
@@ -259,6 +382,14 @@ struct ActionOutputArgs {
     action_id: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ApprovalResponseArgs {
+    thread_id: String,
+    approval_id: String,
+    response: Value,
+}
+
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ListRemoteAuditEventsArgs {
@@ -294,6 +425,35 @@ struct TerminalResumeSessionArgs {
     session_id: String,
     #[serde(default)]
     from_seq: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TerminalWriteArgs {
+    workspace_id: String,
+    session_id: String,
+    data: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TerminalWriteBytesArgs {
+    workspace_id: String,
+    session_id: String,
+    data: Vec<u8>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TerminalResizeArgs {
+    workspace_id: String,
+    session_id: String,
+    cols: u16,
+    rows: u16,
+    #[serde(default)]
+    pixel_width: u16,
+    #[serde(default)]
+    pixel_height: u16,
 }
 
 fn parse_args<T>(args: Option<Value>) -> Result<T, String>
@@ -435,6 +595,16 @@ mod tests {
             .expect("failed to set engine thread id");
 
         (workspace, repo, thread)
+    }
+
+    fn acquire_lease(
+        state: &AppState,
+        grant_id: &str,
+        scope_type: &str,
+        scope_id: &str,
+    ) -> crate::models::RemoteControllerLeaseDto {
+        db::remote::acquire_controller_lease(&state.db, grant_id, scope_type, scope_id, 60)
+            .expect("failed to acquire controller lease")
     }
 
     fn seed_thread_messages(state: &AppState, thread: &ThreadDto) -> (MessageDto, MessageDto) {
@@ -839,5 +1009,169 @@ mod tests {
             .error
             .as_deref()
             .is_some_and(|error| error.contains("owns")));
+    }
+
+    #[tokio::test]
+    async fn enforces_controller_leases_for_runtime_write_commands() {
+        let (state, base_dir) = test_app_state();
+        let (workspace, _repo, thread) = create_workspace_repo_and_thread(&state, &base_dir);
+        let router = RemoteCommandRouter::new(state.db.clone(), state.terminals.clone())
+            .with_state(state.clone());
+        let controller = create_grant(
+            &state,
+            "Controller",
+            &["thread.read", "terminal.read", "controller.write"],
+        );
+        let other = create_grant(
+            &state,
+            "Other",
+            &["thread.read", "terminal.read", "controller.write"],
+        );
+
+        let denied_cancel = router
+            .handle_request(
+                &controller.grant,
+                RemoteCommandRequest {
+                    id: "req-10".to_string(),
+                    command: "cancel_turn".to_string(),
+                    args: Some(serde_json::json!({
+                        "threadId": thread.id
+                    })),
+                },
+            )
+            .await;
+        assert!(!denied_cancel.ok);
+        assert!(denied_cancel
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("remote controller lease required")));
+
+        acquire_lease(&state, &controller.grant.id, "thread", &thread.id);
+
+        let cancel = router
+            .handle_request(
+                &controller.grant,
+                RemoteCommandRequest {
+                    id: "req-11".to_string(),
+                    command: "cancel_turn".to_string(),
+                    args: Some(serde_json::json!({
+                        "threadId": thread.id
+                    })),
+                },
+            )
+            .await;
+        assert!(cancel.ok);
+
+        let denied_response = router
+            .handle_request(
+                &other.grant,
+                RemoteCommandRequest {
+                    id: "req-12".to_string(),
+                    command: "respond_to_approval".to_string(),
+                    args: Some(serde_json::json!({
+                        "threadId": thread.id,
+                        "approvalId": "approval-1",
+                        "response": { "decision": "accept" }
+                    })),
+                },
+            )
+            .await;
+        assert!(!denied_response.ok);
+        assert!(denied_response
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("held by device grant")));
+
+        let claude_thread = db::threads::create_thread(
+            &state.db,
+            &workspace.id,
+            None,
+            "claude",
+            "claude-3-7-sonnet",
+            "Claude Remote",
+        )
+        .expect("failed to create claude thread");
+        acquire_lease(&state, &controller.grant.id, "thread", &claude_thread.id);
+
+        let approval = router
+            .handle_request(
+                &controller.grant,
+                RemoteCommandRequest {
+                    id: "req-13".to_string(),
+                    command: "respond_to_approval".to_string(),
+                    args: Some(serde_json::json!({
+                        "threadId": claude_thread.id,
+                        "approvalId": "approval-1",
+                        "response": { "decision": "accept" }
+                    })),
+                },
+            )
+            .await;
+        assert!(approval.ok);
+
+        let denied_terminal_write = router
+            .handle_request(
+                &controller.grant,
+                RemoteCommandRequest {
+                    id: "req-14".to_string(),
+                    command: "terminal_write".to_string(),
+                    args: Some(serde_json::json!({
+                        "workspaceId": workspace.id,
+                        "sessionId": "missing-session",
+                        "data": "pwd\n"
+                    })),
+                },
+            )
+            .await;
+        assert!(!denied_terminal_write.ok);
+        assert!(denied_terminal_write
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("remote controller lease required")));
+
+        acquire_lease(&state, &controller.grant.id, "workspace", &workspace.id);
+
+        let terminal_write = router
+            .handle_request(
+                &controller.grant,
+                RemoteCommandRequest {
+                    id: "req-15".to_string(),
+                    command: "terminal_write".to_string(),
+                    args: Some(serde_json::json!({
+                        "workspaceId": workspace.id,
+                        "sessionId": "missing-session",
+                        "data": "pwd\n"
+                    })),
+                },
+            )
+            .await;
+        assert!(!terminal_write.ok);
+        assert!(terminal_write
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("terminal session not found")));
+
+        let terminal_resize = router
+            .handle_request(
+                &controller.grant,
+                RemoteCommandRequest {
+                    id: "req-16".to_string(),
+                    command: "terminal_resize".to_string(),
+                    args: Some(serde_json::json!({
+                        "workspaceId": workspace.id,
+                        "sessionId": "missing-session",
+                        "cols": 120,
+                        "rows": 40,
+                        "pixelWidth": 0,
+                        "pixelHeight": 0
+                    })),
+                },
+            )
+            .await;
+        assert!(!terminal_resize.ok);
+        assert!(terminal_resize
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("terminal session not found")));
     }
 }
