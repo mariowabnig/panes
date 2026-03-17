@@ -2,7 +2,10 @@ use tauri::State;
 
 use crate::{
     db,
-    models::{CreatedRemoteDeviceGrantDto, RemoteControllerLeaseDto, RemoteDeviceGrantDto},
+    models::{
+        CreatedRemoteDeviceGrantDto, RemoteAuditEventDto, RemoteControllerLeaseDto,
+        RemoteDeviceGrantDto,
+    },
     state::AppState,
 };
 
@@ -44,6 +47,17 @@ pub async fn revoke_remote_device_grant(
 ) -> Result<(), String> {
     run_db(state.db.clone(), move |db| {
         db::remote::revoke_device_grant(db, &grant_id)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn list_remote_audit_events(
+    state: State<'_, AppState>,
+    limit: Option<usize>,
+) -> Result<Vec<RemoteAuditEventDto>, String> {
+    run_db(state.db.clone(), move |db| {
+        db::remote::list_remote_audit_events(db, limit)
     })
     .await
 }

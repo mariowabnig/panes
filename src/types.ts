@@ -89,6 +89,16 @@ export interface RemoteControllerLease {
   releasedAt: string | null;
 }
 
+export interface RemoteAuditEvent {
+  id: string;
+  deviceGrantId: string | null;
+  actionType: string;
+  targetType: string;
+  targetId: string | null;
+  payload: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 export type WorkspaceStartupPresetFormat = "json" | "toml";
 export type WorkspaceDefaultView = "chat" | "split" | "terminal" | "editor";
 export type WorkspacePathBase = "workspace" | "worktree" | "absolute";

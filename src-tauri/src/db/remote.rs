@@ -1,16 +1,22 @@
 use anyhow::Context;
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use rusqlite::{params, OptionalExtension, Transaction};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use crate::models::{CreatedRemoteDeviceGrantDto, RemoteControllerLeaseDto, RemoteDeviceGrantDto};
+use crate::models::{
+    CreatedRemoteDeviceGrantDto, RemoteAuditEventDto, RemoteControllerLeaseDto,
+    RemoteDeviceGrantDto,
+};
 
 use super::Database;
 
 const SQLITE_DATETIME_FORMAT: &str = "%Y-%m-%d %H:%M:%S";
 const MIN_CONTROLLER_LEASE_TTL_SECS: u64 = 15;
 const MAX_CONTROLLER_LEASE_TTL_SECS: u64 = 60 * 60;
+const DEFAULT_REMOTE_AUDIT_LIMIT: usize = 100;
+const MAX_REMOTE_AUDIT_LIMIT: usize = 200;
 
 pub fn list_device_grants(db: &Database) -> anyhow::Result<Vec<RemoteDeviceGrantDto>> {
     let conn = db.connect()?;
@@ -29,13 +35,35 @@ pub fn list_device_grants(db: &Database) -> anyhow::Result<Vec<RemoteDeviceGrant
     Ok(grants)
 }
 
+pub fn list_remote_audit_events(
+    db: &Database,
+    limit: Option<usize>,
+) -> anyhow::Result<Vec<RemoteAuditEventDto>> {
+    let normalized_limit = normalize_remote_audit_limit(limit);
+    let conn = db.connect()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, device_grant_id, action_type, target_type, target_id, payload_json, created_at
+         FROM remote_audit_events
+         ORDER BY created_at DESC, id DESC
+         LIMIT ?1",
+    )?;
+    let rows = stmt.query_map(params![normalized_limit as i64], map_remote_audit_event_row)?;
+
+    let mut audit_events = Vec::new();
+    for row in rows {
+        audit_events.push(row?);
+    }
+
+    Ok(audit_events)
+}
+
 pub fn create_device_grant(
     db: &Database,
     label: &str,
     scopes: &[String],
     expires_at: Option<&str>,
 ) -> anyhow::Result<CreatedRemoteDeviceGrantDto> {
-    let conn = db.connect()?;
+    let mut conn = db.connect()?;
     let id = Uuid::new_v4().to_string();
     let token = generate_device_grant_token();
     let token_hash = hash_token(&token);
@@ -44,8 +72,11 @@ pub fn create_device_grant(
     let scopes_json = serde_json::to_string(&normalized_scopes)
         .context("failed to encode device grant scopes")?;
     let normalized_expires_at = normalize_expires_at(expires_at)?;
+    let tx = conn
+        .transaction()
+        .context("failed to start remote device grant create transaction")?;
 
-    conn.execute(
+    tx.execute(
         "INSERT INTO remote_device_grants (
             id, token_hash, label, scopes_json, expires_at
          ) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -59,8 +90,23 @@ pub fn create_device_grant(
     )
     .context("failed to insert remote device grant")?;
 
-    let grant = get_device_grant_by_id(db, &id)?
+    let grant = get_device_grant_by_id_tx(&tx, &id)?
         .ok_or_else(|| anyhow::anyhow!("created remote device grant missing after insert"))?;
+    let audit_payload = json!({
+        "label": grant.label.clone(),
+        "scopes": grant.scopes.clone(),
+        "expiresAt": grant.expires_at.clone(),
+    });
+    insert_remote_audit_event_tx(
+        &tx,
+        Some(&grant.id),
+        "remote_device_grant.created",
+        "remote_device_grant",
+        Some(&grant.id),
+        Some(&audit_payload),
+    )?;
+    tx.commit()
+        .context("failed to commit remote device grant create transaction")?;
 
     Ok(CreatedRemoteDeviceGrantDto { grant, token })
 }
@@ -70,18 +116,17 @@ pub fn revoke_device_grant(db: &Database, grant_id: &str) -> anyhow::Result<()> 
     let tx = conn
         .transaction()
         .context("failed to start remote device grant revoke transaction")?;
-    let affected = tx
-        .execute(
-            "UPDATE remote_device_grants
-             SET revoked_at = COALESCE(revoked_at, datetime('now'))
-             WHERE id = ?1",
-            params![grant_id],
-        )
-        .context("failed to revoke remote device grant")?;
+    let existing_grant = get_device_grant_by_id_tx(&tx, grant_id)?
+        .ok_or_else(|| anyhow::anyhow!("remote device grant not found: {grant_id}"))?;
+    let already_revoked = existing_grant.revoked_at.is_some();
 
-    if affected == 0 {
-        anyhow::bail!("remote device grant not found: {grant_id}");
-    }
+    tx.execute(
+        "UPDATE remote_device_grants
+         SET revoked_at = COALESCE(revoked_at, datetime('now'))
+         WHERE id = ?1",
+        params![grant_id],
+    )
+    .context("failed to revoke remote device grant")?;
 
     tx.execute(
         "UPDATE remote_controller_leases
@@ -91,6 +136,17 @@ pub fn revoke_device_grant(db: &Database, grant_id: &str) -> anyhow::Result<()> 
         params![grant_id],
     )
     .context("failed to release controller leases for revoked device grant")?;
+
+    if !already_revoked {
+        insert_remote_audit_event_tx(
+            &tx,
+            Some(grant_id),
+            "remote_device_grant.revoked",
+            "remote_device_grant",
+            Some(grant_id),
+            None,
+        )?;
+    }
 
     tx.commit()
         .context("failed to commit remote device grant revoke transaction")?;
@@ -180,7 +236,7 @@ pub fn acquire_controller_lease(
 
     let expires_at = format_timestamp(Utc::now() + Duration::seconds(ttl_secs as i64));
 
-    let lease =
+    let (lease, action_type) =
         match get_active_controller_lease_tx(&tx, &normalized_scope_type, &normalized_scope_id)? {
             Some(existing) if existing.device_grant_id == grant_id => {
                 tx.execute(
@@ -190,9 +246,10 @@ pub fn acquire_controller_lease(
                     params![existing.id, expires_at],
                 )
                 .context("failed to extend controller lease")?;
-                get_controller_lease_by_id_tx(&tx, &existing.id)?.ok_or_else(|| {
+                let lease = get_controller_lease_by_id_tx(&tx, &existing.id)?.ok_or_else(|| {
                     anyhow::anyhow!("controller lease missing after extension: {}", existing.id)
-                })?
+                })?;
+                (lease, "remote_controller_lease.renewed")
             }
             Some(existing) => {
                 anyhow::bail!(
@@ -217,11 +274,26 @@ pub fn acquire_controller_lease(
                     ],
                 )
                 .context("failed to create controller lease")?;
-                get_controller_lease_by_id_tx(&tx, &lease_id)?.ok_or_else(|| {
+                let lease = get_controller_lease_by_id_tx(&tx, &lease_id)?.ok_or_else(|| {
                     anyhow::anyhow!("controller lease missing after insert: {lease_id}")
-                })?
+                })?;
+                (lease, "remote_controller_lease.acquired")
             }
         };
+
+    let audit_payload = json!({
+        "scopeType": lease.scope_type.clone(),
+        "scopeId": lease.scope_id.clone(),
+        "expiresAt": lease.expires_at.clone(),
+    });
+    insert_remote_audit_event_tx(
+        &tx,
+        Some(&lease.device_grant_id),
+        action_type,
+        "remote_controller_lease",
+        Some(&lease.id),
+        Some(&audit_payload),
+    )?;
 
     tx.commit()
         .context("failed to commit controller lease transaction")?;
@@ -229,9 +301,15 @@ pub fn acquire_controller_lease(
 }
 
 pub fn release_controller_lease(db: &Database, lease_id: &str) -> anyhow::Result<()> {
-    let conn = db.connect()?;
-    let affected = conn
-        .execute(
+    let mut conn = db.connect()?;
+    let tx = conn
+        .transaction()
+        .context("failed to start controller lease release transaction")?;
+    let lease = get_controller_lease_by_id_tx(&tx, lease_id)?
+        .ok_or_else(|| anyhow::anyhow!("controller lease not found: {lease_id}"))?;
+
+    if lease.released_at.is_none() {
+        tx.execute(
             "UPDATE remote_controller_leases
              SET released_at = COALESCE(released_at, datetime('now'))
              WHERE id = ?1",
@@ -239,19 +317,23 @@ pub fn release_controller_lease(db: &Database, lease_id: &str) -> anyhow::Result
         )
         .context("failed to release controller lease")?;
 
-    if affected == 0 {
-        anyhow::bail!("controller lease not found: {lease_id}");
+        let audit_payload = json!({
+            "scopeType": lease.scope_type.clone(),
+            "scopeId": lease.scope_id.clone(),
+        });
+        insert_remote_audit_event_tx(
+            &tx,
+            Some(&lease.device_grant_id),
+            "remote_controller_lease.released",
+            "remote_controller_lease",
+            Some(&lease.id),
+            Some(&audit_payload),
+        )?;
     }
 
+    tx.commit()
+        .context("failed to commit controller lease release transaction")?;
     Ok(())
-}
-
-fn get_device_grant_by_id(
-    db: &Database,
-    grant_id: &str,
-) -> anyhow::Result<Option<RemoteDeviceGrantDto>> {
-    let conn = db.connect()?;
-    get_device_grant_by_id_tx(&conn, grant_id)
 }
 
 fn get_device_grant_by_id_tx(
@@ -277,6 +359,38 @@ fn get_active_controller_lease_tx(
 ) -> anyhow::Result<Option<RemoteControllerLeaseDto>> {
     conn.query_active_controller_lease(scope_type, scope_id)
         .context("failed to query active controller lease")
+}
+
+fn insert_remote_audit_event_tx(
+    tx: &Transaction<'_>,
+    device_grant_id: Option<&str>,
+    action_type: &str,
+    target_type: &str,
+    target_id: Option<&str>,
+    payload: Option<&Value>,
+) -> anyhow::Result<()> {
+    let action_type = normalize_scope_value(action_type, "remote audit action type")?;
+    let target_type = normalize_scope_value(target_type, "remote audit target type")?;
+    let payload_json = payload
+        .map(serde_json::to_string)
+        .transpose()
+        .context("failed to encode remote audit payload")?;
+
+    tx.execute(
+        "INSERT INTO remote_audit_events (
+            id, device_grant_id, action_type, target_type, target_id, payload_json
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            Uuid::new_v4().to_string(),
+            device_grant_id,
+            action_type,
+            target_type,
+            target_id,
+            payload_json,
+        ],
+    )
+    .context("failed to insert remote audit event")?;
+    Ok(())
 }
 
 fn cleanup_inactive_controller_leases(tx: &Transaction<'_>) -> anyhow::Result<()> {
@@ -329,6 +443,31 @@ fn map_controller_lease_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<RemoteC
         acquired_at: row.get(4)?,
         expires_at: row.get(5)?,
         released_at: row.get(6)?,
+    })
+}
+
+fn map_remote_audit_event_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<RemoteAuditEventDto> {
+    let payload_json: Option<String> = row.get(5)?;
+    let payload = payload_json
+        .map(|payload| {
+            serde_json::from_str(&payload).map_err(|error| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    5,
+                    rusqlite::types::Type::Text,
+                    Box::new(error),
+                )
+            })
+        })
+        .transpose()?;
+
+    Ok(RemoteAuditEventDto {
+        id: row.get(0)?,
+        device_grant_id: row.get(1)?,
+        action_type: row.get(2)?,
+        target_type: row.get(3)?,
+        target_id: row.get(4)?,
+        payload,
+        created_at: row.get(6)?,
     })
 }
 
@@ -497,6 +636,12 @@ fn normalize_scope_value(value: &str, label: &str) -> anyhow::Result<String> {
         anyhow::bail!("{label} cannot be empty");
     }
     Ok(trimmed.to_string())
+}
+
+fn normalize_remote_audit_limit(limit: Option<usize>) -> usize {
+    limit
+        .unwrap_or(DEFAULT_REMOTE_AUDIT_LIMIT)
+        .clamp(1, MAX_REMOTE_AUDIT_LIMIT)
 }
 
 fn normalize_scopes(scopes: &[String]) -> Vec<String> {
@@ -739,5 +884,91 @@ mod tests {
             acquire_controller_lease(&db, &future.grant.id, "thread", "thread-2", 60)
                 .expect("failed to acquire lease after grant expiry");
         assert_eq!(replacement_lease.device_grant_id, future.grant.id);
+    }
+
+    #[test]
+    fn remote_audit_events_capture_grant_and_lease_mutations() {
+        let db = test_db();
+        let created = create_device_grant(&db, "Audit Device", &["chat.read".to_string()], None)
+            .expect("failed to create audit device grant");
+        let lease = acquire_controller_lease(&db, &created.grant.id, "workspace", "ws-audit", 60)
+            .expect("failed to acquire controller lease");
+        acquire_controller_lease(&db, &created.grant.id, "workspace", "ws-audit", 120)
+            .expect("failed to renew controller lease");
+        release_controller_lease(&db, &lease.id).expect("failed to release controller lease");
+        release_controller_lease(&db, &lease.id)
+            .expect("failed to re-release controller lease idempotently");
+        revoke_device_grant(&db, &created.grant.id).expect("failed to revoke audit device grant");
+
+        let audit_events =
+            list_remote_audit_events(&db, Some(10)).expect("failed to list remote audit events");
+        let action_types = audit_events
+            .iter()
+            .map(|event| event.action_type.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(action_types.contains(&"remote_device_grant.created"));
+        assert!(action_types.contains(&"remote_controller_lease.acquired"));
+        assert!(action_types.contains(&"remote_controller_lease.renewed"));
+        assert!(action_types.contains(&"remote_controller_lease.released"));
+        assert!(action_types.contains(&"remote_device_grant.revoked"));
+
+        let release_events = audit_events
+            .iter()
+            .filter(|event| event.action_type == "remote_controller_lease.released")
+            .collect::<Vec<_>>();
+        assert_eq!(release_events.len(), 1);
+
+        let create_event = audit_events
+            .iter()
+            .find(|event| event.action_type == "remote_device_grant.created")
+            .expect("missing device grant created audit event");
+        assert_eq!(
+            create_event.device_grant_id.as_deref(),
+            Some(created.grant.id.as_str())
+        );
+        assert_eq!(create_event.target_type, "remote_device_grant");
+        assert_eq!(
+            create_event.target_id.as_deref(),
+            Some(created.grant.id.as_str())
+        );
+        assert_eq!(
+            create_event
+                .payload
+                .as_ref()
+                .and_then(|payload| payload.get("label"))
+                .and_then(Value::as_str),
+            Some("Audit Device")
+        );
+        assert!(create_event
+            .payload
+            .as_ref()
+            .and_then(|payload| payload.get("token"))
+            .is_none());
+
+        let limited_events =
+            list_remote_audit_events(&db, Some(2)).expect("failed to list limited audit events");
+        assert_eq!(limited_events.len(), 2);
+    }
+
+    #[test]
+    fn revoking_an_expired_grant_still_records_an_audit_event() {
+        let db = test_db();
+        let expired = create_device_grant(
+            &db,
+            "Expired Device",
+            &[],
+            Some(&(Utc::now() - Duration::minutes(1)).to_rfc3339()),
+        )
+        .expect("failed to create expired device grant");
+
+        revoke_device_grant(&db, &expired.grant.id).expect("failed to revoke expired grant");
+
+        let audit_events =
+            list_remote_audit_events(&db, Some(10)).expect("failed to list remote audit events");
+        assert!(audit_events.iter().any(|event| {
+            event.action_type == "remote_device_grant.revoked"
+                && event.target_id.as_deref() == Some(expired.grant.id.as_str())
+        }));
     }
 }

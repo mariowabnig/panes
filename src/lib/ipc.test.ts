@@ -34,6 +34,17 @@ describe("ipc transport", () => {
     expect(invoke).toHaveBeenCalledWith("get_app_locale", undefined);
   });
 
+  it("forwards remote audit queries through the configured transport", async () => {
+    const { invoke, transport } = createMockTransport();
+    invoke.mockResolvedValue([]);
+    setPanesTransport(transport);
+
+    await expect(ipc.listRemoteAuditEvents(25)).resolves.toEqual([]);
+    expect(invoke).toHaveBeenCalledWith("list_remote_audit_events", {
+      limit: 25,
+    });
+  });
+
   it("forwards event subscriptions through the configured transport", async () => {
     const { listeners, listen, transport } = createMockTransport();
     setPanesTransport(transport);

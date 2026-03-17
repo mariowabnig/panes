@@ -130,6 +130,7 @@ pub fn run() {
             commands::remote::list_remote_device_grants,
             commands::remote::create_remote_device_grant,
             commands::remote::revoke_remote_device_grant,
+            commands::remote::list_remote_audit_events,
             commands::remote::get_active_remote_controller_lease,
             commands::remote::acquire_remote_controller_lease,
             commands::remote::release_remote_controller_lease,

@@ -41,6 +41,7 @@ import type {
   MessageWindow,
   MessageWindowCursor,
   ReadFileResult,
+  RemoteAuditEvent,
   RemoteDeviceGrant,
   CreatedRemoteDeviceGrant,
   RemoteControllerLease,
@@ -99,6 +100,10 @@ export const ipc = {
     }),
   revokeRemoteDeviceGrant: (grantId: string) =>
     invoke<void>("revoke_remote_device_grant", { grantId }),
+  listRemoteAuditEvents: (limit?: number | null) =>
+    invoke<RemoteAuditEvent[]>("list_remote_audit_events", {
+      limit: limit ?? null,
+    }),
   getActiveRemoteControllerLease: (scopeType: string, scopeId: string) =>
     invoke<RemoteControllerLease | null>("get_active_remote_controller_lease", {
       scopeType,

@@ -61,6 +61,18 @@ pub struct RemoteControllerLeaseDto {
     pub released_at: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteAuditEventDto {
+    pub id: String,
+    pub device_grant_id: Option<String>,
+    pub action_type: String,
+    pub target_type: String,
+    pub target_id: Option<String>,
+    pub payload: Option<Value>,
+    pub created_at: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum TrustLevelDto {
