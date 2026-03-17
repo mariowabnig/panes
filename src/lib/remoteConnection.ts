@@ -6,6 +6,20 @@ export interface RemoteBindAddressParts {
   wildcard: boolean;
 }
 
+function isIpv4LoopbackHost(host: string): boolean {
+  const parts = host.split(".");
+  if (parts.length !== 4) {
+    return false;
+  }
+
+  const octets = parts.map((part) => Number(part));
+  if (octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+    return false;
+  }
+
+  return octets[0] === 127;
+}
+
 function stripIpv6Brackets(host: string): string {
   if (host.startsWith("[") && host.endsWith("]")) {
     return host.slice(1, -1);
@@ -79,6 +93,20 @@ export function deriveRemoteConnectHost(
 
   const preferredHost = stripIpv6Brackets(connectHost?.trim() ?? "");
   return preferredHost;
+}
+
+export function isRemoteLoopbackHost(host: string): boolean {
+  const normalized = stripIpv6Brackets(host.trim()).toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return (
+    normalized === "::1" ||
+    normalized === "localhost" ||
+    normalized.endsWith(".localhost") ||
+    isIpv4LoopbackHost(normalized)
+  );
 }
 
 export function buildRemoteConnectUrl(

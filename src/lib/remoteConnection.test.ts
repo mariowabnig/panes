@@ -5,6 +5,7 @@ import {
   buildRemoteConnectionDetails,
   buildRemoteWebUrl,
   deriveRemoteConnectHost,
+  isRemoteLoopbackHost,
   parseRemoteBindAddr,
 } from "./remoteConnection";
 
@@ -36,6 +37,16 @@ describe("remoteConnection", () => {
     expect(deriveRemoteConnectHost("127.0.0.1:4050")).toBe("127.0.0.1");
     expect(deriveRemoteConnectHost("0.0.0.0:4050", "192.168.1.15")).toBe("192.168.1.15");
     expect(deriveRemoteConnectHost("127.0.0.1:4050", "192.168.1.15")).toBe("127.0.0.1");
+  });
+
+  it("detects loopback aliases used in local-only bind addresses", () => {
+    expect(isRemoteLoopbackHost("127.0.0.1")).toBe(true);
+    expect(isRemoteLoopbackHost("127.1.2.3")).toBe(true);
+    expect(isRemoteLoopbackHost("LOCALHOST")).toBe(true);
+    expect(isRemoteLoopbackHost("dev.localhost")).toBe(true);
+    expect(isRemoteLoopbackHost("::1")).toBe(true);
+    expect(isRemoteLoopbackHost("192.168.1.20")).toBe(false);
+    expect(isRemoteLoopbackHost("panes.local")).toBe(false);
   });
 
   it("builds websocket urls with explicit host overrides", () => {

@@ -19,6 +19,7 @@ import {
   buildRemoteConnectionDetails,
   DEFAULT_REMOTE_HOST_BIND_ADDR,
   deriveRemoteConnectHost,
+  isRemoteLoopbackHost,
   parseRemoteBindAddr,
   buildRemoteWebUrl,
 } from "../../lib/remoteConnection";
@@ -195,8 +196,7 @@ export function RemoteAccessPage() {
   const effectiveBindAddr =
     hostStatus?.bindAddr ?? (bindAddrDraft.trim() || DEFAULT_REMOTE_HOST_BIND_ADDR);
   const parsedBindAddr = parseRemoteBindAddr(effectiveBindAddr);
-  const isLoopbackBinding =
-    parsedBindAddr?.host === "127.0.0.1" || parsedBindAddr?.host === "::1";
+  const isLoopbackBinding = parsedBindAddr ? isRemoteLoopbackHost(parsedBindAddr.host) : false;
   const needsAdvertisedHost = parsedBindAddr?.wildcard === true && !connectHostDraft.trim();
   const connectUrl = useMemo(
     () => buildRemoteConnectUrl(effectiveBindAddr, connectHostDraft),
