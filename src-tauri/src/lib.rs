@@ -13,6 +13,7 @@ mod models;
 mod path_utils;
 mod power;
 mod process_utils;
+pub mod remote;
 mod runtime_env;
 mod state;
 mod terminal;

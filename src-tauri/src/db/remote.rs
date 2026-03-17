@@ -154,7 +154,6 @@ pub fn revoke_device_grant(db: &Database, grant_id: &str) -> anyhow::Result<()> 
     Ok(())
 }
 
-#[allow(dead_code)]
 pub fn find_active_device_grant_by_token(
     db: &Database,
     token: &str,
@@ -175,16 +174,21 @@ pub fn find_active_device_grant_by_token(
     Ok(grant.filter(is_grant_active))
 }
 
-#[allow(dead_code)]
 pub fn touch_device_grant_last_used(db: &Database, grant_id: &str) -> anyhow::Result<()> {
     let conn = db.connect()?;
-    conn.execute(
-        "UPDATE remote_device_grants
+    let affected = conn
+        .execute(
+            "UPDATE remote_device_grants
          SET last_used_at = datetime('now')
          WHERE id = ?1",
-        params![grant_id],
-    )
-    .context("failed to update remote device grant last_used_at")?;
+            params![grant_id],
+        )
+        .context("failed to update remote device grant last_used_at")?;
+
+    if affected == 0 {
+        anyhow::bail!("remote device grant not found: {grant_id}");
+    }
+
     Ok(())
 }
 
@@ -204,6 +208,14 @@ pub fn get_active_controller_lease(
     tx.commit()
         .context("failed to commit controller lease lookup transaction")?;
     Ok(lease)
+}
+
+pub fn get_controller_lease_by_id(
+    db: &Database,
+    lease_id: &str,
+) -> anyhow::Result<Option<RemoteControllerLeaseDto>> {
+    let conn = db.connect()?;
+    get_controller_lease_by_id_tx(&conn, lease_id)
 }
 
 pub fn acquire_controller_lease(
