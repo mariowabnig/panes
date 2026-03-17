@@ -2,7 +2,7 @@ use tauri::State;
 
 use crate::{
     db,
-    models::{CreatedRemoteDeviceGrantDto, RemoteDeviceGrantDto},
+    models::{CreatedRemoteDeviceGrantDto, RemoteControllerLeaseDto, RemoteDeviceGrantDto},
     state::AppState,
 };
 
@@ -44,6 +44,43 @@ pub async fn revoke_remote_device_grant(
 ) -> Result<(), String> {
     run_db(state.db.clone(), move |db| {
         db::remote::revoke_device_grant(db, &grant_id)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn get_active_remote_controller_lease(
+    state: State<'_, AppState>,
+    scope_type: String,
+    scope_id: String,
+) -> Result<Option<RemoteControllerLeaseDto>, String> {
+    run_db(state.db.clone(), move |db| {
+        db::remote::get_active_controller_lease(db, &scope_type, &scope_id)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn acquire_remote_controller_lease(
+    state: State<'_, AppState>,
+    grant_id: String,
+    scope_type: String,
+    scope_id: String,
+    ttl_secs: u64,
+) -> Result<RemoteControllerLeaseDto, String> {
+    run_db(state.db.clone(), move |db| {
+        db::remote::acquire_controller_lease(db, &grant_id, &scope_type, &scope_id, ttl_secs)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn release_remote_controller_lease(
+    state: State<'_, AppState>,
+    lease_id: String,
+) -> Result<(), String> {
+    run_db(state.db.clone(), move |db| {
+        db::remote::release_controller_lease(db, &lease_id)
     })
     .await
 }

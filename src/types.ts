@@ -79,6 +79,16 @@ export interface CreatedRemoteDeviceGrant {
   token: string;
 }
 
+export interface RemoteControllerLease {
+  id: string;
+  scopeType: string;
+  scopeId: string;
+  deviceGrantId: string;
+  acquiredAt: string;
+  expiresAt: string;
+  releasedAt: string | null;
+}
+
 export type WorkspaceStartupPresetFormat = "json" | "toml";
 export type WorkspaceDefaultView = "chat" | "split" | "terminal" | "editor";
 export type WorkspacePathBase = "workspace" | "worktree" | "absolute";

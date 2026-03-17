@@ -43,6 +43,7 @@ import type {
   ReadFileResult,
   RemoteDeviceGrant,
   CreatedRemoteDeviceGrant,
+  RemoteControllerLease,
   Repo,
   SearchResult,
   StreamEvent,
@@ -98,6 +99,25 @@ export const ipc = {
     }),
   revokeRemoteDeviceGrant: (grantId: string) =>
     invoke<void>("revoke_remote_device_grant", { grantId }),
+  getActiveRemoteControllerLease: (scopeType: string, scopeId: string) =>
+    invoke<RemoteControllerLease | null>("get_active_remote_controller_lease", {
+      scopeType,
+      scopeId,
+    }),
+  acquireRemoteControllerLease: (
+    grantId: string,
+    scopeType: string,
+    scopeId: string,
+    ttlSecs: number,
+  ) =>
+    invoke<RemoteControllerLease>("acquire_remote_controller_lease", {
+      grantId,
+      scopeType,
+      scopeId,
+      ttlSecs,
+    }),
+  releaseRemoteControllerLease: (leaseId: string) =>
+    invoke<void>("release_remote_controller_lease", { leaseId }),
   getTerminalAcceleratedRendering: () =>
     invoke<boolean>("get_terminal_accelerated_rendering"),
   setTerminalAcceleratedRendering: (enabled: boolean) =>

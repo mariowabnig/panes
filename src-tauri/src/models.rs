@@ -49,6 +49,18 @@ pub struct CreatedRemoteDeviceGrantDto {
     pub token: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteControllerLeaseDto {
+    pub id: String,
+    pub scope_type: String,
+    pub scope_id: String,
+    pub device_grant_id: String,
+    pub acquired_at: String,
+    pub expires_at: String,
+    pub released_at: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum TrustLevelDto {
