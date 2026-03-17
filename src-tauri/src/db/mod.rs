@@ -129,6 +129,7 @@ impl Database {
         ensure_workspace_startup_columns(&conn)?;
         ensure_runtime_columns(&conn)?;
         ensure_messages_audit_columns(&conn)?;
+        ensure_remote_session_tables(&conn)?;
         repair_normalized_workspace_and_repo_paths(&mut conn)?;
         Ok(())
     }
@@ -220,6 +221,61 @@ fn ensure_messages_audit_columns(conn: &Connection) -> anyhow::Result<()> {
         )
         .context("failed to add messages.turn_reasoning_effort column")?;
     }
+
+    Ok(())
+}
+
+fn ensure_remote_session_tables(conn: &Connection) -> anyhow::Result<()> {
+    conn.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS remote_device_grants (
+            id TEXT PRIMARY KEY,
+            token_hash TEXT NOT NULL,
+            label TEXT NOT NULL,
+            scopes_json TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            expires_at TEXT,
+            revoked_at TEXT,
+            last_used_at TEXT
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_remote_device_grants_token_hash
+            ON remote_device_grants(token_hash);
+
+        CREATE TABLE IF NOT EXISTS remote_controller_leases (
+            id TEXT PRIMARY KEY,
+            scope_type TEXT NOT NULL,
+            scope_id TEXT NOT NULL,
+            device_grant_id TEXT NOT NULL,
+            acquired_at TEXT NOT NULL DEFAULT (datetime('now')),
+            expires_at TEXT NOT NULL,
+            released_at TEXT,
+            FOREIGN KEY(device_grant_id) REFERENCES remote_device_grants(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_remote_controller_leases_scope
+            ON remote_controller_leases(scope_type, scope_id);
+        CREATE INDEX IF NOT EXISTS idx_remote_controller_leases_device_grant
+            ON remote_controller_leases(device_grant_id);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_remote_controller_leases_active_scope
+            ON remote_controller_leases(scope_type, scope_id)
+            WHERE released_at IS NULL;
+
+        CREATE TABLE IF NOT EXISTS remote_audit_events (
+            id TEXT PRIMARY KEY,
+            device_grant_id TEXT,
+            action_type TEXT NOT NULL,
+            target_type TEXT NOT NULL,
+            target_id TEXT,
+            payload_json TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY(device_grant_id) REFERENCES remote_device_grants(id) ON DELETE SET NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_remote_audit_events_device_grant
+            ON remote_audit_events(device_grant_id);
+        CREATE INDEX IF NOT EXISTS idx_remote_audit_events_created_at
+            ON remote_audit_events(created_at);
+        "#,
+    )
+    .context("failed to ensure remote session tables")?;
 
     Ok(())
 }
@@ -700,6 +756,7 @@ fn invert_timestamp(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rusqlite::OptionalExtension;
     use std::sync::{Arc, Mutex};
     use uuid::Uuid;
 
@@ -1005,6 +1062,47 @@ mod tests {
         assert_eq!(repos[0].path, r"C:\Users\panes\repo\app");
         assert_eq!(repos[0].trust_level.as_str(), "restricted");
         assert!(repos[0].is_active);
+    }
+
+    #[test]
+    fn creates_remote_session_tables() {
+        let db = test_db();
+        let conn = Connection::open(&db.path).expect("failed to open raw sqlite db");
+
+        for table in [
+            "remote_device_grants",
+            "remote_controller_leases",
+            "remote_audit_events",
+        ] {
+            let exists: Option<String> = conn
+                .query_row(
+                    "SELECT name
+                     FROM sqlite_master
+                     WHERE type = 'table'
+                       AND name = ?1",
+                    params![table],
+                    |row| row.get(0),
+                )
+                .optional()
+                .expect("failed to inspect sqlite_master");
+            assert_eq!(exists.as_deref(), Some(table));
+        }
+
+        let active_scope_index: Option<String> = conn
+            .query_row(
+                "SELECT name
+                 FROM sqlite_master
+                 WHERE type = 'index'
+                   AND name = 'idx_remote_controller_leases_active_scope'",
+                [],
+                |row| row.get(0),
+            )
+            .optional()
+            .expect("failed to inspect sqlite_master indexes");
+        assert_eq!(
+            active_scope_index.as_deref(),
+            Some("idx_remote_controller_leases_active_scope")
+        );
     }
 }
 
