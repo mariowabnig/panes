@@ -5,7 +5,11 @@ import { AppErrorBoundary } from "./components/shared/AppErrorBoundary";
 import { initializeI18n } from "./i18n";
 import { ipc } from "./lib/ipc";
 import { getBrowserLocaleFallback } from "./lib/locale";
+import { setPanesTransport } from "./lib/panesTransport";
+import { createTauriTransport } from "./lib/tauriTransport";
 import "./globals.css";
+
+setPanesTransport(createTauriTransport());
 
 async function bootstrap() {
   let locale = getBrowserLocaleFallback();

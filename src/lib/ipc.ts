@@ -1,7 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { normalizeDependencyReport } from "./dependencies";
 import type { AppLocale } from "./locale";
+import { getPanesTransport, type PanesUnlistenFn } from "./panesTransport";
 import type {
   ApprovalResponse,
   ActionOutputPayload,
@@ -58,6 +57,19 @@ import type {
   WorkspaceGitSelectionStatus,
   Workspace
 } from "../types";
+
+type UnlistenFn = PanesUnlistenFn;
+
+function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+  return getPanesTransport().invoke<T>(command, args);
+}
+
+function listen<T>(
+  channel: string,
+  onEvent: (event: { payload: T }) => void,
+): Promise<UnlistenFn> {
+  return getPanesTransport().listen<T>(channel, (payload) => onEvent({ payload }));
+}
 
 export const ipc = {
   getAppLocale: () => invoke<AppLocale>("get_app_locale"),

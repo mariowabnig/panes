@@ -4,6 +4,7 @@ mod db;
 mod engines;
 mod fs_ops;
 mod git;
+mod host_runtime;
 #[cfg(any(target_os = "linux", test))]
 mod linux_appimage;
 mod linux_webkit;
@@ -17,75 +18,27 @@ mod state;
 mod terminal;
 mod workspace_startup;
 
-use std::sync::Arc;
-
 use anyhow::Context;
 use rusqlite::OptionalExtension;
 
-use config::app_config::AppConfig;
-use db::Database;
-use engines::{CodexRuntimeEvent, EngineManager};
-use git::repo::FileTreeCache;
-use git::watcher::GitWatcherManager;
+use engines::CodexRuntimeEvent;
+use host_runtime::{create_app_state, shutdown_app_state};
 #[cfg(target_os = "macos")]
 use locale::native_strings;
 use locale::resolve_app_locale;
 use models::{EngineRuntimeUpdatedDto, ThreadDto, ThreadStatusDto};
-use power::KeepAwakeManager;
-use state::{AppState, TurnManager};
+use state::AppState;
 #[cfg(target_os = "macos")]
 use tauri::menu::{AboutMetadata, MenuItem, PredefinedMenuItem, SubmenuBuilder};
 use tauri::{image::Image, menu::Menu, Emitter, Manager, RunEvent, WebviewWindowBuilder};
-use terminal::TerminalManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::init();
     linux_webkit::apply_webkit_display_workarounds();
 
-    let db = Database::init().expect("failed to initialize database");
-    match db::threads::reconcile_runtime_state(&db) {
-        Ok(report) => {
-            if report.messages_marked_interrupted > 0 || report.thread_status_updates > 0 {
-                log::info!(
-                    "runtime recovery applied: interrupted_messages={}, thread_status_updates={}",
-                    report.messages_marked_interrupted,
-                    report.thread_status_updates
-                );
-            }
-        }
-        Err(error) => {
-            log::warn!("runtime recovery failed, continuing startup: {error}");
-        }
-    }
-    let app_config = AppConfig::load_or_create().expect("failed to load config");
-    let app_locale = resolve_app_locale(app_config.general.locale.as_deref());
-    let keep_awake = Arc::new(KeepAwakeManager::new());
-    if let Err(error) = keep_awake.reclaim_stale_helpers() {
-        log::warn!("failed to reclaim stale keep awake helper: {error}");
-    }
-    if app_config.power.keep_awake_enabled {
-        if let Err(error) =
-            tauri::async_runtime::block_on(keep_awake.enable_with_config(&app_config.power))
-        {
-            log::warn!("failed to reapply keep awake on startup: {error}");
-        }
-    }
-
-    let _ =
-        db::workspaces::ensure_default_workspace(&db).expect("failed to ensure default workspace");
-
-    let app_state = AppState {
-        db,
-        config: Arc::new(app_config),
-        config_write_lock: Arc::new(tokio::sync::Mutex::new(())),
-        engines: Arc::new(EngineManager::new()),
-        git_watchers: Arc::new(GitWatcherManager::default()),
-        terminals: Arc::new(TerminalManager::default()),
-        keep_awake,
-        turns: Arc::new(TurnManager::default()),
-        file_tree_cache: Arc::new(FileTreeCache::new()),
-    };
+    let app_state = create_app_state().expect("failed to initialize app state");
+    let app_locale = resolve_app_locale(app_state.config.general.locale.as_deref());
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -287,13 +240,9 @@ pub fn run() {
 
     app.run(|app_handle, event| match event {
         RunEvent::ExitRequested { .. } | RunEvent::Exit => {
-            let terminals = app_handle.state::<AppState>().terminals.clone();
-            let keep_awake = app_handle.state::<AppState>().keep_awake.clone();
+            let state = app_handle.state::<AppState>().inner().clone();
             tauri::async_runtime::block_on(async move {
-                if let Err(error) = keep_awake.shutdown().await {
-                    log::warn!("failed to release keep awake on shutdown: {error}");
-                }
-                terminals.shutdown().await;
+                shutdown_app_state(&state).await;
             });
         }
         _ => {}
