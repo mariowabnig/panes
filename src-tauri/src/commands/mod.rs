@@ -1,5 +1,6 @@
 pub mod app;
 pub mod chat;
+pub mod contexts;
 pub mod engines;
 pub mod files;
 pub mod git;

@@ -303,6 +303,11 @@ pub fn run() {
             commands::harness::check_harnesses,
             commands::harness::install_harness,
             commands::harness::launch_harness,
+            commands::contexts::create_context,
+            commands::contexts::list_contexts,
+            commands::contexts::update_context,
+            commands::contexts::get_context_for_thread,
+            commands::contexts::archive_context,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

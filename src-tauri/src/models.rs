@@ -870,6 +870,40 @@ pub struct TerminalLatencySnapshotDto {
     pub stdout_read_to_emit_ms: Option<u64>,
 }
 
+// ── Contexts ────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextDto {
+    pub id: String,
+    pub workspace_id: String,
+    pub repo_id: String,
+    pub worktree_path: Option<String>,
+    pub branch_name: String,
+    pub thread_id: Option<String>,
+    pub display_name: String,
+    pub pr_url: Option<String>,
+    pub pr_number: Option<i64>,
+    pub status: String,
+    pub terminal_recipe: Option<String>,
+    pub editor_state: Option<String>,
+    pub layout_mode: Option<String>,
+    pub created_at: String,
+    pub last_active_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextUpdateDto {
+    pub status: Option<String>,
+    pub thread_id: Option<String>,
+    pub terminal_recipe: Option<String>,
+    pub editor_state: Option<String>,
+    pub layout_mode: Option<String>,
+    pub last_active_at: Option<String>,
+    pub archived_at: Option<String>,
+}
+
 // ── Git Remotes ─────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

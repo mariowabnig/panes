@@ -11,6 +11,7 @@ import { useTerminalStore } from "./terminalStore";
 import { useGitStore } from "./gitStore";
 import { destroyCachedEditor } from "../components/editor/CodeMirrorEditor";
 import type {
+  ContextEditorState,
   EditorRevealLocation,
   EditorRevealRequest,
   EditorRenderMode,
@@ -147,6 +148,14 @@ interface FileStoreState {
   setTabContent: (tabId: string, content: string) => void;
   clearPendingReveal: (tabId: string, nonce: string) => void;
   saveTab: (tabId: string) => Promise<void>;
+  closeAllTabs: () => void;
+  snapshotTabs: (contextRootPath: string) => ContextEditorState;
+  restoreTabs: (
+    contextRootPath: string,
+    editorState: ContextEditorState,
+  ) => Promise<void>;
+  hasDirtyTabs: () => boolean;
+  saveAllTabs: () => Promise<void>;
 }
 
 export const useFileStore = create<FileStoreState>((set, get) => ({
@@ -443,6 +452,71 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
       toast.success(t("app:editor.toasts.saved", { name: tab.fileName }));
     } catch (err) {
       toast.error(t("app:editor.toasts.saveFailed", { error: String(err) }));
+    }
+  },
+
+  closeAllTabs: () => {
+    const { tabs } = get();
+    for (const tab of tabs) {
+      destroyCachedEditor(tab.id);
+      destroyCachedEditor(`${tab.id}:git-base`);
+      destroyCachedEditor(`${tab.id}:git-modified`);
+    }
+    set({ tabs: [], activeTabId: null, pendingCloseTabId: null });
+  },
+
+  snapshotTabs: (contextRootPath) => {
+    const { tabs, activeTabId } = get();
+    const activeTab = activeTabId ? tabs.find((t) => t.id === activeTabId) : null;
+
+    return {
+      tabs: tabs.map((tab) => {
+        // Store path relative to the context root
+        let filePath = tab.filePath;
+        if (tab.absolutePath.startsWith(contextRootPath)) {
+          filePath = tab.absolutePath.slice(contextRootPath.length).replace(/^\//, "");
+        }
+        return {
+          filePath,
+          renderMode: tab.renderMode,
+          cursorLine: undefined,
+          cursorColumn: undefined,
+        };
+      }),
+      activeTabFilePath: activeTab?.filePath ?? null,
+    };
+  },
+
+  restoreTabs: async (contextRootPath, editorState) => {
+    get().closeAllTabs();
+
+    for (const savedTab of editorState.tabs) {
+      try {
+        await get().openFileAtLocation(contextRootPath, savedTab.filePath,
+          savedTab.cursorLine ? { line: savedTab.cursorLine, column: savedTab.cursorColumn } : null,
+        );
+      } catch {
+        // File may no longer exist — skip silently
+      }
+    }
+
+    if (editorState.activeTabFilePath) {
+      const tabs = get().tabs;
+      const active = tabs.find((t) => t.filePath === editorState.activeTabFilePath);
+      if (active) {
+        set({ activeTabId: active.id });
+      }
+    }
+  },
+
+  hasDirtyTabs: () => {
+    return get().tabs.some((tab) => tab.isDirty);
+  },
+
+  saveAllTabs: async () => {
+    const dirtyTabs = get().tabs.filter((t) => t.isDirty);
+    for (const tab of dirtyTabs) {
+      await get().saveTab(tab.id);
     }
   },
 }));

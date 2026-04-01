@@ -60,7 +60,9 @@ import type {
   Thread,
   TrustLevel,
   WorkspaceGitSelectionStatus,
-  Workspace
+  Workspace,
+  Context,
+  ContextUpdate,
 } from "../types";
 
 export const ipc = {
@@ -512,6 +514,16 @@ export const ipc = {
     invoke<InstallResult>("install_harness", { harnessId }),
   launchHarness: (harnessId: string) =>
     invoke<string>("launch_harness", { harnessId }),
+
+  // ── Contexts ──────────────────────────────────────────────────
+  createContext: (ctx: Context) => invoke<Context>("create_context", { ctx }),
+  listContexts: (workspaceId: string) =>
+    invoke<Context[]>("list_contexts", { workspaceId }),
+  updateContext: (id: string, update: ContextUpdate) =>
+    invoke<void>("update_context", { id, update }),
+  getContextForThread: (threadId: string) =>
+    invoke<Context | null>("get_context_for_thread", { threadId }),
+  archiveContext: (id: string) => invoke<void>("archive_context", { id }),
 };
 
 export async function listenThreadEvents(

@@ -83,6 +83,57 @@ export interface WorkspaceGitSelectionStatus {
   configured: boolean;
 }
 
+// ── Contexts ────────────────────────────────────────────────────────
+
+export type ContextStatus = "active" | "paused" | "archived";
+
+export interface Context {
+  id: string;
+  workspaceId: string;
+  repoId: string;
+  worktreePath: string | null;
+  branchName: string;
+  threadId: string | null;
+  displayName: string;
+  prUrl: string | null;
+  prNumber: number | null;
+  status: ContextStatus;
+  terminalRecipe: string | null;
+  editorState: string | null;
+  layoutMode: string | null;
+  createdAt: string;
+  lastActiveAt: string;
+}
+
+export interface ContextUpdate {
+  status?: string;
+  threadId?: string;
+  terminalRecipe?: string;
+  editorState?: string;
+  layoutMode?: string;
+  lastActiveAt?: string;
+  archivedAt?: string;
+}
+
+export interface ContextEditorState {
+  tabs: Array<{
+    filePath: string;
+    renderMode: string;
+    cursorLine?: number;
+    cursorColumn?: number;
+  }>;
+  activeTabFilePath?: string | null;
+}
+
+export interface ContextTerminalRecipe {
+  sessions: Array<{
+    title?: string | null;
+    harnessId?: string | null;
+    launchHarnessOnCreate?: boolean;
+  }>;
+  broadcastOnStart?: boolean;
+}
+
 export type WorkspaceStartupPresetFormat = "json" | "toml";
 export type WorkspaceDefaultView = "chat" | "split" | "terminal" | "editor";
 export type WorkspacePathBase = "workspace" | "worktree" | "absolute";
@@ -973,6 +1024,7 @@ export interface TerminalSessionRuntimeMeta {
   autoDetectedHarness?: boolean;
   launchHarnessOnCreate?: boolean;
   worktree?: WorktreeSessionInfo | null;
+  contextId?: string | null;
 }
 
 export interface TerminalGroup {

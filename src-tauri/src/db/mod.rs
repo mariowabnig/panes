@@ -13,6 +13,7 @@ use rusqlite::{params, Connection, Transaction};
 use crate::{path_utils, runtime_env};
 
 pub mod actions;
+pub mod contexts;
 pub mod messages;
 pub mod repos;
 pub mod threads;
@@ -318,6 +319,11 @@ fn merge_duplicate_repos(tx: &Transaction<'_>) -> anyhow::Result<()> {
                 params![canonical.id, duplicate.id],
             )
             .context("failed to remap duplicate repo threads")?;
+            tx.execute(
+                "UPDATE contexts SET repo_id = ?1 WHERE repo_id = ?2",
+                params![canonical.id, duplicate.id],
+            )
+            .context("failed to remap duplicate repo contexts")?;
             tx.execute("DELETE FROM repos WHERE id = ?1", params![duplicate.id])
                 .context("failed to delete duplicate repo row")?;
         }
@@ -391,6 +397,11 @@ fn move_workspace_references(
         params![canonical_workspace_id, duplicate.id],
     )
     .context("failed to remap duplicate workspace threads")?;
+    tx.execute(
+        "UPDATE contexts SET workspace_id = ?1 WHERE workspace_id = ?2",
+        params![canonical_workspace_id, duplicate.id],
+    )
+    .context("failed to remap duplicate workspace contexts")?;
     tx.execute(
         "DELETE FROM workspaces WHERE id = ?1",
         params![duplicate.id],

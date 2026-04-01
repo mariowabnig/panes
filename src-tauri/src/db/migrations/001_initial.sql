@@ -129,3 +129,26 @@ CREATE TRIGGER IF NOT EXISTS messages_fts_update AFTER UPDATE ON messages BEGIN
   INSERT INTO messages_fts(rowid, thread_id, role, searchable_text)
   VALUES (new.rowid, new.thread_id, new.role, COALESCE(new.content, ''));
 END;
+
+CREATE TABLE IF NOT EXISTS contexts (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  repo_id TEXT NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+  worktree_path TEXT,
+  branch_name TEXT NOT NULL,
+  thread_id TEXT UNIQUE REFERENCES threads(id) ON DELETE SET NULL,
+  display_name TEXT NOT NULL,
+  pr_url TEXT,
+  pr_number INTEGER,
+  status TEXT NOT NULL DEFAULT 'active',
+  terminal_recipe TEXT,
+  editor_state TEXT,
+  layout_mode TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  last_active_at TEXT NOT NULL DEFAULT (datetime('now')),
+  archived_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_contexts_workspace ON contexts(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_contexts_repo ON contexts(repo_id);
+CREATE INDEX IF NOT EXISTS idx_contexts_workspace_status ON contexts(workspace_id, status);
