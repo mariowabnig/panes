@@ -584,7 +584,10 @@
       "created": "Contexto \"{{name}}\" criado",
       "closed": "Contexto \"{{name}}\" fechado",
       "switchFailed": "Falha ao trocar contexto",
-      "createFailed": "Falha ao criar contexto"
+      "createFailed": "Falha ao criar contexto",
+      "duplicateBranch": "Um contexto para a branch \"{{branch}}\" já existe. Trocando para ele.",
+      "reconciledOne": "1 contexto arquivado (worktree não encontrada no disco)",
+      "reconciledMany": "{{count}} contextos arquivados (worktrees não encontradas no disco)"
     }
   }
 }

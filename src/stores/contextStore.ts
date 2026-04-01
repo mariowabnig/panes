@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { ipc } from "../lib/ipc";
+import { t } from "../i18n";
 import { useWorkspaceStore } from "./workspaceStore";
 import { useGitStore } from "./gitStore";
 import { useThreadStore } from "./threadStore";
@@ -93,6 +94,14 @@ export const useContextStore = create<ContextState>((set, get) => ({
 
   loadContexts: async (workspaceId) => {
     try {
+      // Reconcile first: archive contexts whose worktrees were deleted externally
+      const archivedCount = await ipc.reconcileContexts(workspaceId);
+      if (archivedCount === 1) {
+        toast.warning(t("app:contexts.toasts.reconciledOne"));
+      } else if (archivedCount > 1) {
+        toast.warning(t("app:contexts.toasts.reconciledMany", { count: archivedCount }));
+      }
+
       const contexts = await ipc.listContexts(workspaceId);
       const lastId = localStorage.getItem(LAST_CONTEXT_KEY_PREFIX + workspaceId);
       const activeContextId = contexts.find((c) => c.id === lastId)?.id ?? null;
@@ -112,6 +121,17 @@ export const useContextStore = create<ContextState>((set, get) => ({
       set({ isCreating: false });
       toast.error("Repo not found");
       return null;
+    }
+
+    // Check for existing context on the same branch
+    const existing = get().contexts.find(
+      (c) => c.repoId === opts.repoId && c.branchName === opts.branchName,
+    );
+    if (existing) {
+      set({ isCreating: false });
+      toast.warning(t("app:contexts.toasts.duplicateBranch", { branch: opts.branchName }));
+      await get().switchContext(existing.id);
+      return existing;
     }
 
     const worktreePath = `${repo.path}/.panes/worktrees/${sanitizeBranchName(opts.branchName)}`;
@@ -204,6 +224,12 @@ export const useContextStore = create<ContextState>((set, get) => ({
     const target = get().contexts.find((c) => c.id === targetId);
     if (!target || target.id === get().activeContextId) return;
 
+    // Auto-save dirty tabs before switching to avoid data loss
+    const fileStore = useFileStore.getState();
+    if (fileStore.hasDirtyTabs()) {
+      await fileStore.saveAllTabs();
+    }
+
     set({ isSwitching: true });
 
     try {
@@ -212,8 +238,6 @@ export const useContextStore = create<ContextState>((set, get) => ({
       if (!repo) {
         throw new Error(`Repo ${target.repoId} not found`);
       }
-
-      const fileStore = useFileStore.getState();
       const gitStore = useGitStore.getState();
       const terminalStore = useTerminalStore.getState();
 

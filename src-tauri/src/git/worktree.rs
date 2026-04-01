@@ -4,18 +4,29 @@ use std::path::Path;
 use super::cli_fallback::run_git;
 use crate::models::GitWorktreeDto;
 
-/// Creates a new worktree at `worktree_path` on a new branch `branch_name`,
-/// branching from `base_ref` (defaults to HEAD if None).
+/// Creates a new worktree at `worktree_path` for `branch_name`.
+///
+/// If `branch_name` already exists as a local or remote-tracking branch, checks
+/// it out into the new worktree directly. Otherwise creates a new branch with
+/// `-b`, branching from `base_ref` (defaults to HEAD if None).
 pub fn add_worktree(
     repo_path: &str,
     worktree_path: &str,
     branch_name: &str,
     base_ref: Option<&str>,
 ) -> anyhow::Result<GitWorktreeDto> {
-    let mut args = vec!["worktree", "add", "-b", branch_name, worktree_path];
-    if let Some(base) = base_ref {
-        args.push(base);
-    }
+    let branch_exists = local_branch_exists(repo_path, branch_name)
+        || remote_tracking_branch_exists(repo_path, branch_name);
+
+    let args = if branch_exists {
+        vec!["worktree", "add", worktree_path, branch_name]
+    } else {
+        let mut a = vec!["worktree", "add", "-b", branch_name, worktree_path];
+        if let Some(base) = base_ref {
+            a.push(base);
+        }
+        a
+    };
     run_git(repo_path, &args).context("failed to add worktree")?;
 
     // Return info about the newly created worktree
@@ -140,4 +151,17 @@ pub fn remove_worktree(
 pub fn prune_worktrees(repo_path: &str) -> anyhow::Result<()> {
     run_git(repo_path, &["worktree", "prune"]).context("failed to prune worktrees")?;
     Ok(())
+}
+
+/// Checks if a local branch exists.
+fn local_branch_exists(repo_path: &str, branch: &str) -> bool {
+    run_git(repo_path, &["rev-parse", "--verify", &format!("refs/heads/{branch}")])
+        .is_ok()
+}
+
+/// Checks if a remote-tracking branch exists across all remotes.
+fn remote_tracking_branch_exists(repo_path: &str, branch: &str) -> bool {
+    run_git(repo_path, &["branch", "-r", "--list", &format!("*/{branch}")])
+        .map(|output| !output.trim().is_empty())
+        .unwrap_or(false)
 }

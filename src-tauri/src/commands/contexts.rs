@@ -78,6 +78,17 @@ pub async fn archive_context(
 }
 
 #[tauri::command]
+pub async fn reconcile_contexts(
+    state: State<'_, AppState>,
+    workspace_id: String,
+) -> Result<usize, String> {
+    run_db(state.db.clone(), move |db| {
+        db::contexts::reconcile_contexts(db, &workspace_id)
+    })
+    .await
+}
+
+#[tauri::command]
 pub async fn fetch_pr_metadata(pr_url: String) -> Result<PrMetadataDto, String> {
     tokio::task::spawn_blocking(move || fetch_pr_metadata_blocking(&pr_url))
         .await

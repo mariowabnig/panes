@@ -308,6 +308,7 @@ pub fn run() {
             commands::contexts::update_context,
             commands::contexts::get_context_for_thread,
             commands::contexts::archive_context,
+            commands::contexts::reconcile_contexts,
             commands::contexts::fetch_pr_metadata,
         ])
         .build(tauri::generate_context!())

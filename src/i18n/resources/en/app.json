@@ -584,7 +584,10 @@
       "created": "Context \"{{name}}\" created",
       "closed": "Context \"{{name}}\" closed",
       "switchFailed": "Failed to switch context",
-      "createFailed": "Failed to create context"
+      "createFailed": "Failed to create context",
+      "duplicateBranch": "A context for branch \"{{branch}}\" already exists. Switching to it.",
+      "reconciledOne": "1 context archived (worktree no longer on disk)",
+      "reconciledMany": "{{count}} contexts archived (worktrees no longer on disk)"
     }
   }
 }

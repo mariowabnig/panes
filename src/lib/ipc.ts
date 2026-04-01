@@ -525,6 +525,8 @@ export const ipc = {
   getContextForThread: (threadId: string) =>
     invoke<Context | null>("get_context_for_thread", { threadId }),
   archiveContext: (id: string) => invoke<void>("archive_context", { id }),
+  reconcileContexts: (workspaceId: string) =>
+    invoke<number>("reconcile_contexts", { workspaceId }),
   fetchPrMetadata: (prUrl: string) => invoke<PrMetadata>("fetch_pr_metadata", { prUrl }),
 };
 

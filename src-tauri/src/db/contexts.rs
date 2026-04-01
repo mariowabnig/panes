@@ -161,6 +161,29 @@ pub fn update_context(
     Ok(())
 }
 
+/// Archives contexts whose worktree paths no longer exist on disk.
+/// Returns the number of contexts archived.
+pub fn reconcile_contexts(db: &Database, workspace_id: &str) -> anyhow::Result<usize> {
+    let contexts = list_contexts(db, workspace_id)?;
+    let mut archived_count = 0;
+
+    for ctx in &contexts {
+        if let Some(ref wt_path) = ctx.worktree_path {
+            if !Path::new(wt_path).exists() {
+                log::warn!(
+                    "Context '{}' worktree missing at {}, archiving",
+                    ctx.display_name,
+                    wt_path
+                );
+                archive_context(db, &ctx.id)?;
+                archived_count += 1;
+            }
+        }
+    }
+
+    Ok(archived_count)
+}
+
 pub fn archive_context(db: &Database, id: &str) -> anyhow::Result<()> {
     let conn = db.connect()?;
     conn.execute(
