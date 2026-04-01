@@ -1324,7 +1324,7 @@ async fn build_codex_branch_context(
     thread: &ThreadDto,
 ) -> Result<(String, String, SandboxPolicy), String> {
     let db = state.db.clone();
-    let (workspace, repos, selected_repo) = run_db(db, {
+    let (workspace, repos, selected_repo, effective_cwd) = run_db(db, {
         let workspace_id = thread.workspace_id.clone();
         let thread_id = thread.id.clone();
         let repo_id = thread.repo_id.clone();
@@ -1339,7 +1339,13 @@ async fn build_codex_branch_context(
             } else {
                 None
             };
-            Ok((workspace, repos, selected_repo))
+            let effective_cwd = db::contexts::resolve_thread_effective_cwd(
+                db,
+                &thread_id,
+                selected_repo.as_ref(),
+                &workspace.root_path,
+            )?;
+            Ok((workspace, repos, selected_repo, effective_cwd))
         }
     })
     .await?;
@@ -1386,7 +1392,7 @@ async fn build_codex_branch_context(
     }
 
     let writable_roots = match selected_repo.as_ref() {
-        Some(repo) => vec![repo.path.clone()],
+        Some(_) => vec![effective_cwd.clone()],
         None => workspace_writable_roots
             .as_ref()
             .map(|resolution| resolution.roots.clone())
@@ -1404,10 +1410,7 @@ async fn build_codex_branch_context(
     )?;
 
     Ok((
-        selected_repo
-            .as_ref()
-            .map(|repo| repo.path.clone())
-            .unwrap_or(workspace_root),
+        effective_cwd,
         thread_last_model_id(thread.engine_metadata.as_ref())
             .unwrap_or_else(|| thread.model_id.clone()),
         SandboxPolicy {

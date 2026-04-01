@@ -274,7 +274,7 @@ pub async fn send_message(
     let effective_model_id =
         resolve_turn_model_id(&thread, requested_model_id, validation_catalog.as_deref())?;
 
-    let (workspace, repos, selected_repo) = run_db(db.clone(), {
+    let (workspace, repos, selected_repo, effective_cwd) = run_db(db.clone(), {
         let workspace_id = thread.workspace_id.clone();
         let thread_id = thread.id.clone();
         let repo_id = thread.repo_id.clone();
@@ -289,7 +289,13 @@ pub async fn send_message(
             } else {
                 None
             };
-            Ok((workspace, repos, selected_repo))
+            let effective_cwd = db::contexts::resolve_thread_effective_cwd(
+                db,
+                &thread_id,
+                selected_repo.as_ref(),
+                &workspace.root_path,
+            )?;
+            Ok((workspace, repos, selected_repo, effective_cwd))
         }
     })
     .await?;
@@ -332,13 +338,13 @@ pub async fn send_message(
             thread.engine_metadata.as_ref(),
         )?)
     };
-    let scope = if let Some(repo) = selected_repo.as_ref() {
+    let scope = if selected_repo.is_some() {
         ThreadScope::Repo {
-            repo_path: repo.path.clone(),
+            repo_path: effective_cwd,
         }
     } else {
         ThreadScope::Workspace {
-            root_path: workspace_root,
+            root_path: effective_cwd,
             writable_roots: workspace_writable_roots
                 .as_ref()
                 .map(|resolution| resolution.roots.clone())

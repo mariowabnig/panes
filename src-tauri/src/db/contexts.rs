@@ -1,8 +1,10 @@
+use std::path::Path;
+
 use anyhow::Context;
 use rusqlite::{params, OptionalExtension};
 use uuid::Uuid;
 
-use crate::models::ContextDto;
+use crate::models::{ContextDto, RepoDto};
 
 use super::Database;
 
@@ -167,6 +169,36 @@ pub fn archive_context(db: &Database, id: &str) -> anyhow::Result<()> {
     )
     .context("failed to archive context")?;
     Ok(())
+}
+
+/// Resolves the effective working directory for a thread.
+///
+/// If the thread belongs to an active context with a worktree path that exists
+/// on disk, returns that worktree path. Otherwise falls back to the repo path
+/// (for repo-scoped threads) or the workspace root.
+pub fn resolve_thread_effective_cwd(
+    db: &Database,
+    thread_id: &str,
+    repo: Option<&RepoDto>,
+    workspace_root: &str,
+) -> anyhow::Result<String> {
+    // Check if thread belongs to a context with a worktree
+    if let Some(ctx) = get_context_for_thread(db, thread_id)? {
+        if let Some(ref wt_path) = ctx.worktree_path {
+            if Path::new(wt_path).exists() {
+                return Ok(wt_path.clone());
+            }
+            log::warn!(
+                "Context worktree path does not exist, falling back to repo path: {}",
+                wt_path
+            );
+        }
+    }
+
+    // Default: repo path or workspace root
+    Ok(repo
+        .map(|r| r.path.clone())
+        .unwrap_or_else(|| workspace_root.to_string()))
 }
 
 fn map_context_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ContextDto> {
