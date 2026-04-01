@@ -142,6 +142,7 @@
       "agents": "Agentes",
       "commands": "Comandos",
       "quickActions": "Ações rápidas",
+      "contexts": "Contextos",
       "launchAgent": "Abrir agente",
       "recentThreads": "Threads recentes",
       "views": "Painéis",
@@ -522,5 +523,63 @@
     "helperInstallingButton": "Instalando...",
     "helperApprovalNote": "Abra Configurações do Sistema → Geral → Itens de Login para aprovar.",
     "helperPasswordFallback": "Uma solicitação de senha aparecerá ao ativar a prevenção de suspensão ao fechar a tampa."
+  },
+  "contexts": {
+    "indicator": {
+      "mainContext": "Principal",
+      "switchContext": "Trocar contexto",
+      "noContexts": "Sem contextos"
+    },
+    "switcher": {
+      "title": "Trocar Contexto",
+      "placeholder": "Buscar contextos...",
+      "newContext": "Novo Contexto",
+      "activeNow": "ativo agora",
+      "ago": "{{time}} atrás",
+      "justNow": "agora",
+      "noMatch": "Nenhum contexto encontrado",
+      "hintNavigate": "navegar",
+      "hintSwitch": "trocar",
+      "hintClose": "fechar"
+    },
+    "create": {
+      "title": "Novo Contexto",
+      "branchName": "Nome da branch",
+      "branchNamePlaceholder": "fix/minha-feature",
+      "baseBranch": "Branch base",
+      "displayName": "Nome de exibição",
+      "displayNamePlaceholder": "Corrigir minha feature",
+      "prSection": "Integração com PR (opcional)",
+      "prUrl": "URL do PR",
+      "prUrlPlaceholder": "https://github.com/org/repo/pull/47",
+      "fetchReviewComments": "Buscar comentários de revisão como contexto do chat",
+      "engine": "Motor",
+      "harness": "Harness",
+      "harnessNone": "Nenhum",
+      "cancel": "Cancelar",
+      "create": "Criar Contexto",
+      "creating": "Criando..."
+    },
+    "close": {
+      "title": "Fechar Contexto: \"{{name}}\"",
+      "removeWorktree": "Remover worktree do disco",
+      "deleteBranch": "Excluir branch ({{branch}})",
+      "archiveThread": "Arquivar thread do chat",
+      "historyNote": "O histórico do chat será preservado nas threads arquivadas.",
+      "cancel": "Cancelar",
+      "close": "Fechar"
+    },
+    "commands": {
+      "switchContext": "Trocar Contexto",
+      "newContext": "Novo Contexto",
+      "closeContext": "Fechar Contexto Atual",
+      "newFromPr": "Novo Contexto a partir de PR"
+    },
+    "toasts": {
+      "created": "Contexto \"{{name}}\" criado",
+      "closed": "Contexto \"{{name}}\" fechado",
+      "switchFailed": "Falha ao trocar contexto",
+      "createFailed": "Falha ao criar contexto"
+    }
   }
 }

@@ -123,7 +123,7 @@ type SubFlow =
 /*  Command registry types                                             */
 /* ------------------------------------------------------------------ */
 
-type CommandGroup = "layout" | "git" | "harness" | "navigation" | "view" | "codex";
+type CommandGroup = "layout" | "git" | "harness" | "navigation" | "view" | "codex" | "context";
 
 interface CommandContext {
   activeWorkspaceId: string | null;
@@ -639,6 +639,41 @@ export function getStaticCommands(
       useGitStore.getState().setActiveView("worktrees");
       if (!useUiStore.getState().showGitPanel) useUiStore.getState().toggleGitPanel();
       close();
+    },
+  },
+  // Context actions
+  {
+    id: "context-switcher",
+    label: t("contexts.commands.switchContext"),
+    icon: SplitSquareHorizontal,
+    group: "context",
+    keywords: ["context", "switch", "worktree", "branch", "contexto"],
+    shortcut: "⌘⇧X",
+    action: ({ close }) => {
+      close();
+      useUiStore.getState().openContextSwitcher();
+    },
+  },
+  {
+    id: "context-new",
+    label: t("contexts.commands.newContext"),
+    icon: Plus,
+    group: "context",
+    keywords: ["new context", "create context", "novo contexto"],
+    action: ({ close }) => {
+      close();
+      useUiStore.getState().openContextCreateModal();
+    },
+  },
+  {
+    id: "context-new-from-pr",
+    label: t("contexts.commands.newFromPr"),
+    icon: GitBranchIcon,
+    group: "context",
+    keywords: ["pr", "pull request", "fix pr"],
+    action: ({ close }) => {
+      close();
+      useUiStore.getState().openContextCreateModal();
     },
   },
   {
@@ -1615,6 +1650,7 @@ export function CommandPalette({ open, onClose }: Props) {
 
       const groupOrder: Array<{ key: CommandGroup; label: string }> = [
         { key: "codex", label: t("commandPalette.group.codex") },
+        { key: "context", label: t("commandPalette.group.contexts") },
         { key: "layout", label: t("commandPalette.group.layout") },
         { key: "navigation", label: t("commandPalette.group.navigation") },
         { key: "git", label: t("commandPalette.group.git") },

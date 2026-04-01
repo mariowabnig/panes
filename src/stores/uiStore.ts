@@ -31,9 +31,15 @@ interface UiState {
   settingsWorkspaceId: string | null;
   commandPaletteOpen: boolean;
   commandPaletteLaunch: CommandPaletteLaunchState;
+  contextSwitcherOpen: boolean;
+  contextCreateModalOpen: boolean;
   messageFocusTarget: MessageFocusTarget | null;
   openCommandPalette: (launch?: Partial<CommandPaletteLaunchState>) => void;
   closeCommandPalette: () => void;
+  openContextSwitcher: () => void;
+  closeContextSwitcher: () => void;
+  openContextCreateModal: () => void;
+  closeContextCreateModal: () => void;
   toggleSidebar: () => void;
   toggleSidebarPin: () => void;
   setSidebarPinned: (pinned: boolean) => void;
@@ -73,6 +79,8 @@ export const useUiStore = create<UiState>((set) => ({
   focusModeSnapshot: null,
   commandPaletteOpen: false,
   commandPaletteLaunch: COMMAND_PALETTE_DEFAULT_LAUNCH,
+  contextSwitcherOpen: false,
+  contextCreateModalOpen: false,
   activeView: "chat",
   settingsWorkspaceId: null,
   messageFocusTarget: null,
@@ -89,6 +97,10 @@ export const useUiStore = create<UiState>((set) => ({
       commandPaletteOpen: false,
       commandPaletteLaunch: COMMAND_PALETTE_DEFAULT_LAUNCH,
     }),
+  openContextSwitcher: () => set({ contextSwitcherOpen: true }),
+  closeContextSwitcher: () => set({ contextSwitcherOpen: false }),
+  openContextCreateModal: () => set({ contextCreateModalOpen: true, contextSwitcherOpen: false }),
+  closeContextCreateModal: () => set({ contextCreateModalOpen: false }),
   toggleSidebar: () => set((state) => ({ showSidebar: !state.showSidebar })),
   toggleSidebarPin: () =>
     set((state) => {

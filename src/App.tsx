@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { ThreeColumnLayout } from "./components/layout/ThreeColumnLayout";
 import { CommandPalette } from "./components/shared/CommandPalette";
+import { ContextSwitcherPalette } from "./components/contexts/ContextSwitcherPalette";
+import { ContextCreateModal } from "./components/contexts/ContextCreateModal";
 import { OnboardingWizard } from "./components/onboarding/OnboardingWizard";
 import { ToastContainer } from "./components/shared/ToastContainer";
 import { PowerSettingsModal } from "./components/shared/PowerSettingsModal";
@@ -110,6 +112,10 @@ export function App() {
   const applyThreadUpdateLocal = useThreadStore((s) => s.applyThreadUpdateLocal);
   const commandPaletteOpen = useUiStore((s) => s.commandPaletteOpen);
   const closeCommandPalette = useUiStore((s) => s.closeCommandPalette);
+  const contextSwitcherOpen = useUiStore((s) => s.contextSwitcherOpen);
+  const closeContextSwitcher = useUiStore((s) => s.closeContextSwitcher);
+  const contextCreateModalOpen = useUiStore((s) => s.contextCreateModalOpen);
+  const closeContextCreateModal = useUiStore((s) => s.closeContextCreateModal);
   const checkForUpdate = useUpdateStore((s) => s.checkForUpdate);
   const customWindowFrame = usesCustomWindowFrame();
   const customWindowFrameState = useCustomWindowFrameState();
@@ -467,6 +473,14 @@ export function App() {
             );
           }
           break;
+        case "x":
+          if (e.shiftKey) {
+            e.preventDefault();
+            fireShortcut("open-context-switcher", () =>
+              useUiStore.getState().openContextSwitcher()
+            );
+          }
+          break;
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -546,6 +560,8 @@ export function App() {
         <ThreeColumnLayout />
       </div>
       <CommandPalette open={commandPaletteOpen} onClose={closeCommandPalette} />
+      <ContextSwitcherPalette open={contextSwitcherOpen} onClose={closeContextSwitcher} />
+      <ContextCreateModal open={contextCreateModalOpen} onClose={closeContextCreateModal} />
       <PowerSettingsModal />
       <TerminalNotificationSettingsModal />
       <OnboardingWizard />

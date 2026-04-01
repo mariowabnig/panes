@@ -27,6 +27,7 @@ import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useUiStore } from "../../stores/uiStore";
 import { useOnboardingStore } from "../../stores/onboardingStore";
 import { useUpdateStore } from "../../stores/updateStore";
+import { ContextIndicator } from "../contexts/ContextIndicator";
 import { canToggleKeepAwake, useKeepAwakeStore } from "../../stores/keepAwakeStore";
 import { useTerminalNotificationSettingsStore } from "../../stores/terminalNotificationSettingsStore";
 import { toast } from "../../stores/toastStore";
@@ -453,6 +454,9 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
             <Plus size={14} strokeWidth={2.2} />
             {t("app:sidebar.newThread")}
           </button>
+
+          {/* Context indicator */}
+          <ContextIndicator />
 
           {/* Agents */}
           <button

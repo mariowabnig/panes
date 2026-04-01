@@ -142,6 +142,7 @@
       "agents": "Agents",
       "commands": "Commands",
       "quickActions": "Quick Actions",
+      "contexts": "Contexts",
       "launchAgent": "Launch Agent",
       "recentThreads": "Recent Threads",
       "views": "Views",
@@ -522,5 +523,63 @@
     "helperInstallingButton": "Installing...",
     "helperApprovalNote": "Open System Settings → General → Login Items to approve.",
     "helperPasswordFallback": "A password prompt will appear when activating lid-close prevention."
+  },
+  "contexts": {
+    "indicator": {
+      "mainContext": "Main",
+      "switchContext": "Switch context",
+      "noContexts": "No contexts"
+    },
+    "switcher": {
+      "title": "Switch Context",
+      "placeholder": "Search contexts...",
+      "newContext": "New Context",
+      "activeNow": "active now",
+      "ago": "{{time}} ago",
+      "justNow": "just now",
+      "noMatch": "No matching contexts",
+      "hintNavigate": "navigate",
+      "hintSwitch": "switch",
+      "hintClose": "close"
+    },
+    "create": {
+      "title": "New Context",
+      "branchName": "Branch name",
+      "branchNamePlaceholder": "fix/my-feature",
+      "baseBranch": "Base branch",
+      "displayName": "Display name",
+      "displayNamePlaceholder": "Fix my feature",
+      "prSection": "PR Integration (optional)",
+      "prUrl": "PR URL",
+      "prUrlPlaceholder": "https://github.com/org/repo/pull/47",
+      "fetchReviewComments": "Fetch review comments as chat context",
+      "engine": "Engine",
+      "harness": "Harness",
+      "harnessNone": "None",
+      "cancel": "Cancel",
+      "create": "Create Context",
+      "creating": "Creating..."
+    },
+    "close": {
+      "title": "Close Context: \"{{name}}\"",
+      "removeWorktree": "Remove worktree from disk",
+      "deleteBranch": "Delete branch ({{branch}})",
+      "archiveThread": "Archive chat thread",
+      "historyNote": "Chat history will be preserved in archived threads.",
+      "cancel": "Cancel",
+      "close": "Close"
+    },
+    "commands": {
+      "switchContext": "Switch Context",
+      "newContext": "New Context",
+      "closeContext": "Close Current Context",
+      "newFromPr": "New Context from PR"
+    },
+    "toasts": {
+      "created": "Context \"{{name}}\" created",
+      "closed": "Context \"{{name}}\" closed",
+      "switchFailed": "Failed to switch context",
+      "createFailed": "Failed to create context"
+    }
   }
 }
