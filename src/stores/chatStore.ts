@@ -1487,6 +1487,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       listenThreadEvents(currentThreadId, (event) => {
         if (event.type === "TurnCompleted") {
           cleanupBackgroundListener(currentThreadId!);
+          const threadStatus: ThreadStatus =
+            event.status === "failed" ? "error"
+            : event.status === "interrupted" ? "idle"
+            : "completed";
+          useThreadStore.getState().setThreadStatusLocal(currentThreadId!, threadStatus);
         }
       }).then((unsub) => {
         // If the user already switched back to this thread, don't register
@@ -1643,6 +1648,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
               usageLimits: nextUsageLimits,
             };
           });
+
+          // Sync thread status to thread store for sidebar spinner
+          if (bindSeq === activeThreadBindSeq && get().threadId === threadId) {
+            useThreadStore.getState().setThreadStatusLocal(threadId, get().status);
+          }
         } finally {
           streamFlushInProgress = false;
         }
@@ -1867,6 +1877,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       streaming: true,
       error: undefined
     }));
+    useThreadStore.getState().setThreadStatusLocal(threadId, "streaming");
     schedulePendingTurnShellMetric(threadId, clientTurnId);
 
     try {
@@ -1889,6 +1900,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         streaming: false,
         error: String(error),
       }));
+      useThreadStore.getState().setThreadStatusLocal(threadId, "error");
       return false;
     }
   },

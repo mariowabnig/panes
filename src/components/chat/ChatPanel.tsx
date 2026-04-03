@@ -3395,6 +3395,12 @@ export function ChatPanel() {
         : null;
 
     if (!targetThreadId) {
+      const firstLine = text.trim().split("\n")[0] ?? "";
+      const quickTitle = firstLine.length > 0
+        ? firstLine.slice(0, 50) + (firstLine.length > 50 ? "…" : "")
+        : activeRepo
+          ? t("panel.repoChatTitle", { name: activeRepo.name })
+          : t("panel.workspaceChatTitle");
       const createdThreadId = await createThread({
         workspaceId: activeWorkspaceId,
         repoId: activeScopeRepoId,
@@ -3405,9 +3411,7 @@ export function ChatPanel() {
           submitEngineId === "codex" && selectedServiceTier !== "inherit"
             ? selectedServiceTier
             : null,
-        title: activeRepo
-          ? t("panel.repoChatTitle", { name: activeRepo.name })
-          : t("panel.workspaceChatTitle"),
+        title: quickTitle,
       });
       if (!createdThreadId) {
         return;

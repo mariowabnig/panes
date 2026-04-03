@@ -6,7 +6,7 @@ import {
   type NewThreadServiceTier,
 } from "../lib/newThreadRuntime";
 import { resolvePreferredOnboardingChatSelection } from "../lib/onboarding";
-import type { Thread } from "../types";
+import type { Thread, ThreadStatus } from "../types";
 import { useChatComposerStore } from "./chatComposerStore";
 import { useEngineStore } from "./engineStore";
 import { useOnboardingStore } from "./onboardingStore";
@@ -56,6 +56,7 @@ interface ThreadState {
   ) => Promise<Thread | null>;
   setActiveThread: (threadId: string | null) => void;
   applyThreadUpdateLocal: (thread: Thread) => boolean;
+  setThreadStatusLocal: (threadId: string, status: ThreadStatus) => void;
   setThreadReasoningEffortLocal: (threadId: string, reasoningEffort: string | null) => void;
   setThreadLastModelLocal: (threadId: string, modelId: string | null) => void;
 }
@@ -624,6 +625,28 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
 
     return applied;
   },
+  setThreadStatusLocal: (threadId, status) =>
+    set((state) => {
+      const existing = state.threads.find((t) => t.id === threadId);
+      if (!existing || existing.status === status) {
+        return state;
+      }
+
+      const updateThread = (thread: Thread) =>
+        thread.id === threadId ? { ...thread, status } : thread;
+
+      const threadsByWorkspace = Object.entries(state.threadsByWorkspace).reduce<
+        Record<string, Thread[]>
+      >((acc, [workspaceId, threads]) => {
+        acc[workspaceId] = threads.map(updateThread);
+        return acc;
+      }, {});
+
+      return {
+        threadsByWorkspace,
+        threads: state.threads.map(updateThread),
+      };
+    }),
   setThreadReasoningEffortLocal: (threadId, reasoningEffort) =>
     set((state) => {
       const updateThread = (thread: Thread) =>
