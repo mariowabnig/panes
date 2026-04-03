@@ -2498,6 +2498,7 @@ interface NewTabDropdownProps {
   repos: Array<{ path: string; name: string; defaultBranch: string }>;
   onNewTerminal: () => void;
   onLaunchHarness: (id: string) => void;
+  onNewThread: (harnessId: string) => void;
   onMultiLaunch: (ids: string[], broadcast: boolean, worktreeRepoPath?: string | null) => void;
 }
 
@@ -2508,6 +2509,7 @@ function NewTabDropdown({
   repos,
   onNewTerminal,
   onLaunchHarness,
+  onNewThread,
   onMultiLaunch,
 }: NewTabDropdownProps) {
   const { t } = useTranslation("app");
@@ -2586,6 +2588,23 @@ function NewTabDropdown({
               {h.name}
             </button>
           ))}
+          {repos.length > 0 && harnesses.length > 0 && (
+            <>
+              <div className="terminal-new-dropdown-divider" />
+              {harnesses.map((h) => (
+                <button
+                  key={`thread-${h.id}`}
+                  type="button"
+                  className="terminal-new-dropdown-item"
+                  title={t("terminal.newThreadTooltip")}
+                  onClick={() => onNewThread(h.id)}
+                >
+                  <GitBranchIcon size={13} />
+                  {t("terminal.newThread", { name: h.name })}
+                </button>
+              ))}
+            </>
+          )}
           {harnesses.length >= 1 && (
             <>
               <div className="terminal-new-dropdown-divider" />
@@ -3678,6 +3697,57 @@ export function TerminalPanel({ workspaceId }: TerminalPanelProps) {
     }
   }, [focusedSessionId, createSession, workspaceId, harnessLaunch, installedHarnesses]);
 
+  const spawnThreadSession = useCallback(async (harnessId: string) => {
+    setNewTabMenuOpen(false);
+    const command = await harnessLaunch(harnessId);
+    if (!command) return;
+    const repo = activeRepos[0];
+    if (!repo) return;
+
+    const active = focusedSessionId
+      ? cachedTerminals.get(terminalCacheKey(workspaceId, focusedSessionId))
+      : undefined;
+    const cols = active?.terminal.cols ?? DEFAULT_COLS;
+    const rows = active?.terminal.rows ?? DEFAULT_ROWS;
+    const harness = installedHarnesses.find((h) => h.id === harnessId);
+    if (!harness) return;
+
+    const worktreeConfig: WorkspaceStartupWorktreeConfig = {
+      enabled: true,
+      repoMode: "fixed_repo",
+      repoPath: repo.path,
+      baseBranch: repo.defaultBranch,
+      baseDir: ".panes/worktrees",
+      branchPrefix: "panes/thread",
+    };
+
+    const result = await createMultiSessionGroup(
+      workspaceId,
+      [{ harnessId, name: harness.name }],
+      worktreeConfig,
+      cols,
+      rows,
+    );
+    if (!result) return;
+
+    const sessionId = result.sessionIds[0];
+    if (sessionId) {
+      void writeCommandToNewSession(workspaceId, sessionId, command);
+    }
+
+    requestAnimationFrame(() => {
+      if (sessionId) setTerminalSessionFocus(sessionId);
+    });
+  }, [
+    focusedSessionId,
+    createMultiSessionGroup,
+    workspaceId,
+    activeRepos,
+    harnessLaunch,
+    installedHarnesses,
+    setTerminalSessionFocus,
+  ]);
+
   const spawnMultiHarnessGroup = useCallback(async (harnessIds: string[], withBroadcast: boolean, worktreeRepoPath?: string | null) => {
     if (harnessIds.length === 0) return;
 
@@ -4180,6 +4250,7 @@ export function TerminalPanel({ workspaceId }: TerminalPanelProps) {
           repos={activeRepos}
           onNewTerminal={() => { setNewTabMenuOpen(false); spawnNewSession(); }}
           onLaunchHarness={(id) => { setNewTabMenuOpen(false); void spawnHarnessSession(id); }}
+          onNewThread={(id) => { void spawnThreadSession(id); }}
           onMultiLaunch={(ids, broadcast, worktreeRepoPath) => { setNewTabMenuOpen(false); void spawnMultiHarnessGroup(ids, broadcast, worktreeRepoPath); }}
         />,
         document.body,

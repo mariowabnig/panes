@@ -303,6 +303,8 @@
     "rename": "Rename",
     "close": "Close",
     "copyDiagnostics": "Copy diagnostics",
+    "newThread": "{{name}} thread",
+    "newThreadTooltip": "New isolated thread in its own worktree",
     "multiLaunchEntry": "Multi-launch...",
     "multiLaunchTitle": "Multi-launch",
     "broadcastInput": "Broadcast input",

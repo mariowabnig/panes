@@ -303,6 +303,8 @@
     "rename": "Renomear",
     "close": "Fechar",
     "copyDiagnostics": "Copiar diagnósticos",
+    "newThread": "Thread {{name}}",
+    "newThreadTooltip": "Nova thread isolada em sua própria worktree",
     "multiLaunchEntry": "Multi-launch...",
     "multiLaunchTitle": "Multi-launch",
     "broadcastInput": "Transmitir entrada",
