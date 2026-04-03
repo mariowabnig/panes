@@ -2588,7 +2588,7 @@ function NewTabDropdown({
               {h.name}
             </button>
           ))}
-          {repos.length > 0 && harnesses.length > 0 && (
+          {harnesses.length > 0 && (
             <>
               <div className="terminal-new-dropdown-divider" />
               {harnesses.map((h) => (
@@ -2599,7 +2599,7 @@ function NewTabDropdown({
                   title={t("terminal.newThreadTooltip")}
                   onClick={() => onNewThread(h.id)}
                 >
-                  <GitBranchIcon size={13} />
+                  {repos.length > 0 ? <GitBranchIcon size={13} /> : <Plus size={13} />}
                   {t("terminal.newThread", { name: h.name })}
                 </button>
               ))}
@@ -3701,8 +3701,6 @@ export function TerminalPanel({ workspaceId }: TerminalPanelProps) {
     setNewTabMenuOpen(false);
     const command = await harnessLaunch(harnessId);
     if (!command) return;
-    const repo = activeRepos[0];
-    if (!repo) return;
 
     const active = focusedSessionId
       ? cachedTerminals.get(terminalCacheKey(workspaceId, focusedSessionId))
@@ -3712,14 +3710,17 @@ export function TerminalPanel({ workspaceId }: TerminalPanelProps) {
     const harness = installedHarnesses.find((h) => h.id === harnessId);
     if (!harness) return;
 
-    const worktreeConfig: WorkspaceStartupWorktreeConfig = {
-      enabled: true,
-      repoMode: "fixed_repo",
-      repoPath: repo.path,
-      baseBranch: repo.defaultBranch,
-      baseDir: ".panes/worktrees",
-      branchPrefix: "panes/thread",
-    };
+    const repo = activeRepos[0];
+    const worktreeConfig: WorkspaceStartupWorktreeConfig | null = repo
+      ? {
+          enabled: true,
+          repoMode: "fixed_repo",
+          repoPath: repo.path,
+          baseBranch: repo.defaultBranch,
+          baseDir: ".panes/worktrees",
+          branchPrefix: "panes/thread",
+        }
+      : null;
 
     const result = await createMultiSessionGroup(
       workspaceId,
