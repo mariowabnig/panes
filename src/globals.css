@@ -2986,6 +2986,26 @@ button, input, textarea, select {
   opacity: 1 !important;
 }
 
+/* Thread status indicators */
+.sb-thread-status-spinner {
+  flex-shrink: 0;
+  color: var(--accent);
+  animation: sb-spin 1s linear infinite;
+}
+
+@keyframes sb-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.sb-thread-status-done {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34d399;
+}
+
 /* New thread button (expanded) */
 .sb-new-thread-btn {
   width: 100%;

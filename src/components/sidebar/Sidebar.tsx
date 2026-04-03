@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Archive,
   RotateCcw,
+  Loader2,
   Settings,
   Pin,
   PinOff,
@@ -634,6 +635,11 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
                               style={{ animationDelay: `${i * 20}ms` }}
                               onClick={() => void onSelectThread(thread)}
                             >
+                              {(thread.status === "streaming" || thread.status === "awaiting_approval") ? (
+                                <Loader2 size={12} className="sb-thread-status-spinner" />
+                              ) : thread.status === "completed" && !isActive ? (
+                                <span className="sb-thread-status-done" />
+                              ) : null}
                               <span className="sb-thread-title">
                                 {getThreadLabel(thread)}
                               </span>
