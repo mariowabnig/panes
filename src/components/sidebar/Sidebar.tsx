@@ -134,6 +134,10 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
   const installedHarnesses = useMemo(() => allHarnesses.filter((h) => h.found), [allHarnesses]);
   const harnessLaunch = useHarnessStore((s) => s.launch);
 
+  // Track which completed threads the user has already viewed
+  const seenThreads = useRef<Set<string>>(new Set());
+  if (activeThreadId) seenThreads.current.add(activeThreadId);
+
   const projects = useMemo<ProjectGroup[]>(
     () =>
       workspaces.map((ws) => ({
@@ -635,11 +639,16 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
                               style={{ animationDelay: `${i * 20}ms` }}
                               onClick={() => void onSelectThread(thread)}
                             >
-                              {(thread.status === "streaming" || thread.status === "awaiting_approval") ? (
-                                <Loader2 size={12} className="sb-thread-status-spinner" />
-                              ) : thread.status === "completed" && !isActive ? (
-                                <span className="sb-thread-status-done" />
-                              ) : null}
+                              {(() => {
+                                if (thread.status === "streaming" || thread.status === "awaiting_approval") {
+                                  seenThreads.current.delete(thread.id);
+                                  return <Loader2 size={12} className="sb-thread-status-spinner" />;
+                                }
+                                if (thread.status === "completed" && !seenThreads.current.has(thread.id)) {
+                                  return <span className="sb-thread-status-done" />;
+                                }
+                                return null;
+                              })()}
                               <span className="sb-thread-title">
                                 {getThreadLabel(thread)}
                               </span>
