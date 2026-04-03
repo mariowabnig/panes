@@ -9,8 +9,9 @@
 - Fixed misleading GUI launch comment in `apply_terminal_env`
 - Added 2 test cases for auth env var passthrough
 
-### 2. ⏳ Codex-style queued messages + steer — Evaluation
-See detailed evaluation below.
+### 2. ✅ Codex-style queued messages (Phase 1)
+Queue one message during Claude streaming; auto-sent on turn completion.
+See implementation details below.
 
 ### 3. ✅ Enter-to-send setting for chat mode
 - `chatInputShortcuts.ts`: Added `enterToSend` parameter — plain Enter submits, Shift+Enter for newline
@@ -25,35 +26,31 @@ See detailed evaluation below.
 
 ---
 
-## Codex-style Queued Messages — Evaluation
+## Codex-style Queued Messages — Implementation
 
-### What Codex has:
-1. **Queue message** — message is queued and only delivered after the agent finishes the current turn
-2. **Steer button** — message is injected immediately into the active turn (interrupts)
+### Phase 1 (implemented):
+Queue ONE message during any engine's streaming turn. Auto-sent on successful turn completion (`status === "completed"`). Cleared on error or interruption.
 
-### What Panes already has:
-- **Steer** already works for **Codex engine only** — if you submit during streaming with Codex, it calls `steer()` which injects a follow-up into the active turn via the Codex API's `steer` method
-- **Claude engine** does NOT support steering — `canSteerActiveTurn` is false when `selectedEngineId !== "codex"`
-- During streaming with Claude, the submit button is hidden entirely
+### How it works:
+- `chatStore.ts`: `queuedMessage: QueuedMessage | null` state + `setQueuedMessage` / `clearQueuedMessage` actions
+- `ChatPanel.tsx onSubmit`: When streaming and can't steer (non-Codex), stores message in queue instead of dropping it
+- `ChatPanel.tsx useEffect`: Watches `streaming` transition from true→false; if `status === "completed"` and there's a queued message, auto-sends it
+- Submit button: Always visible during streaming — shows Clock icon with amber color when in queue mode, Send icon when idle/steer mode
+- Queued indicator: Amber banner above input showing truncated queued message with cancel (X) button
+- Keyboard: Enter/Cmd+Enter during streaming now queues instead of being silently blocked
 
-### Recommendation:
+### UX:
+- User types while agent is streaming → presses Enter → message is queued
+- Amber "Queued: ..." banner appears above input with cancel button
+- Agent finishes → queued message auto-sends immediately
+- If agent errors or is interrupted → queued message is cleared (not sent)
+- Only one message can be queued at a time (new queue overwrites previous)
 
-**Phase 1 (quick win):** Allow queuing ONE message during Claude streaming. When the agent finishes (status → completed), auto-send the queued message. This gives the "Codex queue" behavior without needing any API changes.
-
-Implementation:
-- Add `queuedMessage: string | null` state to chatStore or ChatPanel
-- When streaming + Claude engine: show "Queue" button instead of hiding send
-- On submit during streaming: store message in queue, show "queued" indicator
-- On turn completion: auto-send queued message
-- Allow cancel/edit of queued message
-
-**Phase 2 (Codex steer for Claude):** Would require the Claude sidecar to support a mid-turn injection API, which it may not support today.
+### Phase 2 (future):
+Claude mid-turn steer — requires Claude sidecar API support for mid-turn injection.
 
 ### Files changed:
-- `src-tauri/src/models.rs`
-- `src-tauri/src/terminal/mod.rs`
-- `src/components/chat/chatInputShortcuts.ts`
-- `src/stores/uiStore.ts`
-- `src/components/chat/ChatPanel.tsx`
-- `src/i18n/resources/en/chat.json`
-- `src/i18n/resources/pt-BR/chat.json`
+- `src/stores/chatStore.ts` — QueuedMessage type, state, actions
+- `src/components/chat/ChatPanel.tsx` — queue on submit, auto-send effect, queue indicator, submit button
+- `src/i18n/resources/en/chat.json` — queueMessage, queuedPrefix, cancelQueued
+- `src/i18n/resources/pt-BR/chat.json` — same keys in Portuguese

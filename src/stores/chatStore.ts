@@ -59,6 +59,16 @@ interface ChatState {
   cancel: () => Promise<void>;
   respondApproval: (approvalId: string, response: ApprovalResponse) => Promise<void>;
   hydrateActionOutput: (messageId: string, actionId: string) => Promise<void>;
+  queuedMessage: QueuedMessage | null;
+  setQueuedMessage: (msg: QueuedMessage) => void;
+  clearQueuedMessage: () => void;
+}
+
+export interface QueuedMessage {
+  text: string;
+  attachments?: ChatAttachment[];
+  inputItems?: ChatInputItem[];
+  planMode?: boolean;
 }
 
 let activeThreadBindSeq = 0;
@@ -1466,6 +1476,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   status: "idle",
   streaming: false,
   usageLimits: null,
+  queuedMessage: null,
+  setQueuedMessage: (msg) => set({ queuedMessage: msg }),
+  clearQueuedMessage: () => set({ queuedMessage: null }),
   setActiveThread: async (threadId) => {
     const currentThreadId = get().threadId;
     const currentUnlisten = get().unlisten;

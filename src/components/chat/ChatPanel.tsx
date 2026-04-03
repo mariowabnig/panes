@@ -1371,6 +1371,9 @@ export function ChatPanel() {
     error,
     setActiveThread: bindChatThread,
     threadId,
+    queuedMessage,
+    setQueuedMessage,
+    clearQueuedMessage,
   } = useChatStore(
     useShallow((state) => ({
       messages: state.messages,
@@ -1388,6 +1391,9 @@ export function ChatPanel() {
       error: state.error,
       setActiveThread: state.setActiveThread,
       threadId: state.threadId,
+      queuedMessage: state.queuedMessage,
+      setQueuedMessage: state.setQueuedMessage,
+      clearQueuedMessage: state.clearQueuedMessage,
     })),
   );
   const messageFocusTarget = useUiStore((s) => s.messageFocusTarget);
@@ -2018,6 +2024,31 @@ export function ChatPanel() {
     streaming,
     threadId,
   ]);
+
+  // Auto-send queued message when streaming ends successfully
+  const prevStreamingForQueueRef = useRef(false);
+  useEffect(() => {
+    const wasStreaming = prevStreamingForQueueRef.current;
+    prevStreamingForQueueRef.current = streaming;
+
+    if (wasStreaming && !streaming && queuedMessage && status === "completed") {
+      const queued = queuedMessage;
+      clearQueuedMessage();
+      void send(queued.text, {
+        modelId: selectedModelId,
+        engineId: selectedEngineId,
+        reasoningEffort: selectedEffort,
+        attachments: queued.attachments,
+        inputItems: queued.inputItems,
+        planMode: queued.planMode,
+      });
+    }
+
+    // Clear queued message on error or interruption
+    if (wasStreaming && !streaming && queuedMessage && status !== "completed") {
+      clearQueuedMessage();
+    }
+  }, [streaming, status, queuedMessage, clearQueuedMessage, send, selectedModelId, selectedEngineId, selectedEffort]);
 
   const pendingApprovalBannerRows = useMemo(
     () =>
@@ -3335,23 +3366,40 @@ export function ChatPanel() {
     const currentAttachments = [...attachments];
 
     if (streaming) {
-      if (!canSteerActiveTurn) {
-        return;
-      }
+      if (canSteerActiveTurn) {
+        const activeThreadId = threadId ?? activeThread?.id ?? null;
+        if (!activeThreadId) {
+          return;
+        }
 
-      const activeThreadId = threadId ?? activeThread?.id ?? null;
-      if (!activeThreadId) {
-        return;
-      }
-
-      const inputItems = await resolveCodexInputItems(text, "codex");
-      const steered = await steer(text, {
-        threadIdOverride: activeThreadId,
-        attachments: currentAttachments.length > 0 ? currentAttachments : undefined,
-        inputItems,
-        planMode,
-      });
-      if (steered) {
+        const inputItems = await resolveCodexInputItems(text, "codex");
+        const steered = await steer(text, {
+          threadIdOverride: activeThreadId,
+          attachments: currentAttachments.length > 0 ? currentAttachments : undefined,
+          inputItems,
+          planMode,
+        });
+        if (steered) {
+          const trimmed = input.trim();
+          if (trimmed) {
+            const hist = inputHistoryRef.current;
+            if (hist[0] !== trimmed) {
+              inputHistoryRef.current = [trimmed, ...hist].slice(0, 50);
+            }
+          }
+          inputHistCursorRef.current = -1;
+          inputLiveDraftRef.current = "";
+          setInput("");
+          setAttachments([]);
+        }
+      } else {
+        // Queue message for auto-send when current turn completes
+        setQueuedMessage({
+          text,
+          attachments: currentAttachments.length > 0 ? currentAttachments : undefined,
+          inputItems: undefined,
+          planMode,
+        });
         const trimmed = input.trim();
         if (trimmed) {
           const hist = inputHistoryRef.current;
@@ -4848,6 +4896,50 @@ export function ChatPanel() {
             </div>
           )}
 
+          {/* Queued message indicator */}
+          {queuedMessage && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "6px 12px",
+                margin: "0 12px 4px",
+                borderRadius: "var(--radius-sm)",
+                background: "rgba(245, 158, 11, 0.08)",
+                border: "1px solid rgba(245, 158, 11, 0.2)",
+                fontSize: 12,
+                color: "var(--text-2)",
+              }}
+            >
+              <Clock size={12} style={{ color: "var(--warning, #f59e0b)", flexShrink: 0 }} />
+              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {t("panel.queuedPrefix")}{" "}
+                <span style={{ color: "var(--text-1)" }}>
+                  {queuedMessage.text.length > 80
+                    ? `${queuedMessage.text.slice(0, 80)}...`
+                    : queuedMessage.text}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={clearQueuedMessage}
+                title={t("panel.cancelQueued")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--text-4)",
+                  cursor: "pointer",
+                  padding: 2,
+                  display: "flex",
+                  flexShrink: 0,
+                }}
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
+
           {/* Input container */}
           <div
             className={`chat-input-box ${planMode && !showSpecialInputComposer ? "chat-input-box-plan" : ""} ${showSpecialInputComposer ? "chat-input-box-tool-input" : ""}`.trim()}
@@ -5027,9 +5119,6 @@ export function ChatPanel() {
                       isComposing: e.nativeEvent.isComposing,
                     }, enterToSend)) {
                       e.preventDefault();
-                      if (streaming && !canSteerActiveTurn) {
-                        return;
-                      }
                       void onSubmit(e);
                     }
                     if (e.shiftKey && e.key === "Tab") {
@@ -5341,38 +5430,50 @@ export function ChatPanel() {
                   </button>
                 )}
 
-                {(!streaming || canSteerActiveTurn) && !showSpecialInputComposer && (
-                <button
-                  type="submit"
-                  disabled={!activeWorkspaceId || !input.trim()}
-                  title={streaming ? t("panel.sendFollowUp") : undefined}
-                  aria-label={streaming ? t("panel.sendFollowUp") : undefined}
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: "50%",
-                    background:
-                      activeWorkspaceId && input.trim()
-                        ? "var(--accent)"
-                        : "var(--bg-4)",
-                    color:
-                      activeWorkspaceId && input.trim()
-                        ? "var(--bg-0)"
-                        : "var(--text-3)",
-                    cursor: activeWorkspaceId && input.trim() ? "pointer" : "default",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    transition: "all var(--duration-fast) var(--ease-out)",
-                    boxShadow:
-                      activeWorkspaceId && input.trim()
-                        ? "var(--accent-glow)"
-                        : "none",
-                  }}
-                >
-                  <Send size={13} />
-                </button>
-                )}
+                {!showSpecialInputComposer && (() => {
+                  const isQueueMode = streaming && !canSteerActiveTurn;
+                  const hasInput = Boolean(activeWorkspaceId && input.trim());
+                  const buttonTitle = isQueueMode
+                    ? t("panel.queueMessage")
+                    : streaming
+                      ? t("panel.sendFollowUp")
+                      : undefined;
+                  return (
+                    <button
+                      type="submit"
+                      disabled={!hasInput && !queuedMessage}
+                      title={buttonTitle}
+                      aria-label={buttonTitle}
+                      style={{
+                        width: 30,
+                        height: 30,
+                        borderRadius: "50%",
+                        background: hasInput
+                          ? isQueueMode
+                            ? "var(--warning, #f59e0b)"
+                            : "var(--accent)"
+                          : "var(--bg-4)",
+                        color: hasInput
+                          ? isQueueMode
+                            ? "var(--bg-0)"
+                            : "var(--bg-0)"
+                          : "var(--text-3)",
+                        cursor: hasInput ? "pointer" : "default",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        transition: "all var(--duration-fast) var(--ease-out)",
+                        boxShadow: hasInput
+                          ? isQueueMode
+                            ? "0 0 8px rgba(245, 158, 11, 0.3)"
+                            : "var(--accent-glow)"
+                          : "none",
+                      }}
+                    >
+                      {isQueueMode ? <Clock size={13} /> : <Send size={13} />}
+                    </button>
+                  );
+                })()}
               </div>
             </div>
           </div>
