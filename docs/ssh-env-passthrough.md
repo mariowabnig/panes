@@ -57,6 +57,12 @@ First build compiles all Rust dependencies (~10 min). The updater signing error 
 5. Expected: `Hi <username>! You've successfully authenticated...`
 6. Also verify: `echo $SSH_AUTH_SOCK` shows a valid socket path
 
+## Other changes on this branch
+
+### New thread button
+
+One-click "thread" buttons in the `+` dropdown launch agent sessions with worktree isolation (in git repos) or plain sessions (outside git repos). See `docs/new-thread-button.md` for details.
+
 ## Upstream status
 
-This fix has not been submitted as a PR to `wygoralves/panes` yet. The branch is ready for a PR once testing is complete across macOS and Linux.
+These changes have not been submitted as a PR to `wygoralves/panes` yet. The branch is ready for a PR once testing is complete.
