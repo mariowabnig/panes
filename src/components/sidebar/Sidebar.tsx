@@ -511,25 +511,23 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
           </button>
 
           {/* New branch thread */}
-          {installedHarnesses.length > 0 && (
-            <button
-              type="button"
-              className="sb-new-thread-btn"
-              style={{ margin: 0 }}
-              title={t("app:terminal.newThreadTooltip")}
-              onClick={() => {
-                const activeProject = projects.find(
-                  (p) => p.workspace.id === activeWorkspaceId,
-                );
-                if (activeProject) {
-                  void onCreateBranchThread(activeProject.workspace);
-                }
-              }}
-            >
-              <GitBranchIcon size={14} strokeWidth={2.2} />
-              {t("app:sidebar.newBranchThread")}
-            </button>
-          )}
+          <button
+            type="button"
+            className="sb-new-thread-btn"
+            style={{ margin: 0 }}
+            title={t("app:terminal.newThreadTooltip")}
+            onClick={() => {
+              const activeProject = projects.find(
+                (p) => p.workspace.id === activeWorkspaceId,
+              );
+              if (activeProject) {
+                void onCreateBranchThread(activeProject.workspace);
+              }
+            }}
+          >
+            <GitBranchIcon size={14} strokeWidth={2.2} />
+            {t("app:sidebar.newBranchThread")}
+          </button>
 
           {/* Agents */}
           <button
