@@ -135,8 +135,19 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
   const installedHarnesses = useMemo(() => allHarnesses.filter((h) => h.found), [allHarnesses]);
   const harnessLaunch = useHarnessStore((s) => s.launch);
 
-  // Track which completed threads the user has already viewed
+  // Track which completed threads the user has already viewed.
+  // Seed with all already-completed threads on mount so they don't show
+  // a green dot after app relaunch.
+  const seenThreadsInitialized = useRef(false);
   const seenThreads = useRef<Set<string>>(new Set());
+  if (!seenThreadsInitialized.current) {
+    seenThreadsInitialized.current = true;
+    for (const t of threads) {
+      if (t.status === "completed") {
+        seenThreads.current.add(t.id);
+      }
+    }
+  }
   if (activeThreadId) seenThreads.current.add(activeThreadId);
 
   // Drag-and-drop reordering state
