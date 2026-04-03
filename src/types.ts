@@ -898,6 +898,14 @@ export interface TerminalEnvSnapshot {
   lcAll: string | null;
   lcCtype: string | null;
   path: string | null;
+  // Auth-critical variables for git/SSH/GPG operations
+  sshAuthSock: string | null;
+  sshAgentPid: string | null;
+  gitAskpass: string | null;
+  gitSshCommand: string | null;
+  gpgAgentInfo: string | null;
+  gnomeKeyringControl: string | null;
+  dbusSessionBusAddress: string | null;
 }
 
 export interface TerminalResizeSnapshot {
