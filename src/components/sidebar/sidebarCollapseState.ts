@@ -9,9 +9,17 @@ export function normalizeSidebarCollapsedState(
   const hasActiveWorkspace =
     typeof activeWorkspaceId === "string" && workspaceIds.includes(activeWorkspaceId);
 
+  // When the active workspace changes, ensure the new active one is expanded
+  // but leave other projects' collapsed state as-is (multi-expand support).
   if (activeWorkspaceChanged && hasActiveWorkspace && activeWorkspaceId) {
     for (const workspaceId of workspaceIds) {
-      next[workspaceId] = workspaceId !== activeWorkspaceId;
+      if (workspaceId === activeWorkspaceId) {
+        next[workspaceId] = false; // always expand the newly active one
+      } else if (workspaceId in previousCollapsed) {
+        next[workspaceId] = previousCollapsed[workspaceId];
+      } else {
+        next[workspaceId] = true; // new workspaces default collapsed
+      }
     }
     return next;
   }

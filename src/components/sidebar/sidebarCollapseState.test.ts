@@ -12,7 +12,7 @@ describe("normalizeSidebarCollapsedState", () => {
     });
   });
 
-  it("collapses the previous workspace when the active workspace changes externally", () => {
+  it("expands the new active workspace but preserves other workspaces' state", () => {
     expect(
       normalizeSidebarCollapsedState(
         ["ws-a", "ws-b", "ws-c"],
@@ -25,9 +25,9 @@ describe("normalizeSidebarCollapsedState", () => {
         "ws-a",
       ),
     ).toEqual({
-      "ws-a": true,
+      "ws-a": false, // stays expanded (was manually expanded)
       "ws-b": true,
-      "ws-c": false,
+      "ws-c": false, // expanded because it's the new active
     });
   });
 

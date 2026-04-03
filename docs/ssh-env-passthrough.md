@@ -38,6 +38,12 @@ The Claude sidecar now also receives `SSH_AUTH_SOCK`, `SSH_AGENT_PID`, `GIT_SSH_
 
 All repos in `~/Downloads/Coding/` use SSH remotes (`git@github.com:...`) as of 2026-04-03.
 
+### SDK sandbox SOCKS proxy issue (fixed)
+
+The Claude Agent SDK wraps every bash command in a macOS `sandbox-exec` with network restrictions. When `allowNetwork` is `false`, it sets `GIT_SSH_COMMAND=ssh -o ProxyCommand='nc -X 5 -x localhost:1080 %h %p'`, routing SSH through a `socat` SOCKS bridge. If the bridge dies, `git push` fails with `nc: connection failed, SOCKS error 2`.
+
+**Fix**: `allow_network_for_trust_level()` in `threads.rs` and `chat.rs` now returns `true` for `Standard` trust level (not just `Trusted`). This bypasses the SOCKS proxy for all non-restricted repos, letting SSH connect directly.
+
 ## Building from the fork
 
 Prerequisites: Rust stable, Node.js 20+, pnpm 9+.

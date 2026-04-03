@@ -13,6 +13,7 @@ import {
   Loader2,
   RotateCcw,
   Settings,
+  Pencil,
   Pin,
   PinOff,
   Terminal,
@@ -101,6 +102,7 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
     removeThread,
     restoreThread,
     createThread,
+    renameThread,
     refreshArchivedThreads,
   } = useThreadStore();
   const openOnboarding = useOnboardingStore((state) => state.openOnboarding);
@@ -170,6 +172,10 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
   const [archiveThreadPrompt, setArchiveThreadPrompt] = useState<{
     thread: Thread;
   } | null>(null);
+  const [renamingThreadId, setRenamingThreadId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [settingsMenuPos, setSettingsMenuPos] = useState({ top: 0, left: 0 });
   const [terminalAcceleratedRendering, setTerminalAcceleratedRendering] = useState(true);
@@ -276,9 +282,8 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
 
   async function onSelectProject(wsId: string) {
     if (activeView !== "chat") setActiveView("chat");
-    setCollapsed(
-      Object.fromEntries(projects.map((p) => [p.workspace.id, p.workspace.id !== wsId]))
-    );
+    // Expand the selected project but leave others as-is (multi-expand)
+    setCollapsed((prev) => ({ ...prev, [wsId]: false }));
     await setActiveWorkspace(wsId);
   }
 
@@ -406,6 +411,20 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
 
   function getThreadLabel(thread: Thread) {
     return thread.title?.trim() || t("app:sidebar.untitledThread");
+  }
+
+  function startRenameThread(thread: Thread) {
+    setRenamingThreadId(thread.id);
+    setRenameValue(thread.title?.trim() || "");
+    // Focus the input after render
+    requestAnimationFrame(() => renameInputRef.current?.select());
+  }
+
+  async function commitRename(threadId: string) {
+    const trimmed = renameValue.trim();
+    setRenamingThreadId(null);
+    if (!trimmed) return;
+    await renameThread(threadId, trimmed);
   }
 
   const keepAwakeDescription = useMemo(() => {
@@ -638,6 +657,7 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
                     if (isActiveProject) {
                       toggleCollapse(project.workspace.id);
                     } else {
+                      // Expand and activate; the project stays expanded via onSelectProject
                       void onSelectProject(project.workspace.id);
                     }
                   }}
@@ -678,13 +698,20 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
                       <>
                         {visibleThreads.map((thread, i) => {
                           const isActive = thread.id === activeThreadId;
+                          const isRenaming = renamingThreadId === thread.id;
                           return (
                             <button
                               key={thread.id}
                               type="button"
                               className={`sb-thread sb-thread-animate ${isActive ? "sb-thread-active" : ""}`}
                               style={{ animationDelay: `${i * 20}ms` }}
-                              onClick={() => void onSelectThread(thread)}
+                              onClick={() => {
+                                if (!isRenaming) void onSelectThread(thread);
+                              }}
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                startRenameThread(thread);
+                              }}
                             >
                               {(() => {
                                 if (thread.status === "streaming" || thread.status === "awaiting_approval") {
@@ -700,13 +727,45 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
                                 }
                                 return null;
                               })()}
-                              <span className="sb-thread-title">
-                                {getThreadLabel(thread)}
-                              </span>
+                              {isRenaming ? (
+                                <input
+                                  ref={renameInputRef}
+                                  className="sb-thread-rename-input"
+                                  value={renameValue}
+                                  onChange={(e) => setRenameValue(e.target.value)}
+                                  onBlur={() => void commitRename(thread.id)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      void commitRename(thread.id);
+                                    } else if (e.key === "Escape") {
+                                      setRenamingThreadId(null);
+                                    }
+                                  }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              ) : (
+                                <span className="sb-thread-title">
+                                  {getThreadLabel(thread)}
+                                </span>
+                              )}
                               <span className="sb-thread-time">
                                 {thread.lastActivityAt
                                   ? formatRelativeTime(thread.lastActivityAt, i18n.language)
                                   : ""}
+                              </span>
+                              <span
+                                role="button"
+                                title={t("app:sidebar.renameThread")}
+                                className="sb-thread-rename"
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  startRenameThread(thread);
+                                }}
+                              >
+                                <Pencil size={11} />
                               </span>
                               <span
                                 role="button"

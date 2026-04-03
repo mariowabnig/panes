@@ -3410,7 +3410,7 @@ fn approval_policy_for_engine_and_trust_level(
 }
 
 fn allow_network_for_trust_level(trust_level: &TrustLevelDto) -> bool {
-    matches!(trust_level, TrustLevelDto::Trusted)
+    matches!(trust_level, TrustLevelDto::Trusted | TrustLevelDto::Standard)
 }
 
 fn thread_approval_policy_override_value(

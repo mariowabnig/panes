@@ -40,6 +40,7 @@
     "workspaceFallback": "Workspace",
     "noThreads": "Nenhuma thread",
     "untitledThread": "Thread sem título",
+    "renameThread": "Renomear thread",
     "archiveThread": "Arquivar thread",
     "showMore": "Mostrar mais {{count}}",
     "archived": "Arquivados",
