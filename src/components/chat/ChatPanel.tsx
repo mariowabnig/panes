@@ -1394,6 +1394,8 @@ export function ChatPanel() {
   const clearMessageFocusTarget = useUiStore((s) => s.clearMessageFocusTarget);
   const focusMode = useUiStore((s) => s.focusMode);
   const showSidebar = useUiStore((s) => s.showSidebar);
+  const enterToSend = useUiStore((s) => s.enterToSend);
+  const toggleEnterToSend = useUiStore((s) => s.toggleEnterToSend);
   const isMac = isMacDesktop();
   const customWindowFrame = usesCustomWindowFrame();
   const useTitlebarSafeInset = isMac && focusMode && !showSidebar;
@@ -3201,9 +3203,10 @@ export function ChatPanel() {
   );
 
   const filteredSlashCommands = useMemo(() => {
-    if (!slashMenuQuery) return slashCommands;
+    const available = slashCommands.filter((c) => !c.disabled);
+    if (!slashMenuQuery) return available;
     const q = slashMenuQuery.toLowerCase();
-    return slashCommands.filter(
+    return available.filter(
       (c) =>
         c.name.toLowerCase().startsWith(q) ||
         c.id.startsWith(q) ||
@@ -3395,6 +3398,12 @@ export function ChatPanel() {
         : null;
 
     if (!targetThreadId) {
+      const firstLine = text.trim().split("\n")[0] ?? "";
+      const quickTitle = firstLine.length > 0
+        ? firstLine.slice(0, 50) + (firstLine.length > 50 ? "…" : "")
+        : activeRepo
+          ? t("panel.repoChatTitle", { name: activeRepo.name })
+          : t("panel.workspaceChatTitle");
       const createdThreadId = await createThread({
         workspaceId: activeWorkspaceId,
         repoId: activeScopeRepoId,
@@ -3405,9 +3414,7 @@ export function ChatPanel() {
           submitEngineId === "codex" && selectedServiceTier !== "inherit"
             ? selectedServiceTier
             : null,
-        title: activeRepo
-          ? t("panel.repoChatTitle", { name: activeRepo.name })
-          : t("panel.workspaceChatTitle"),
+        title: quickTitle,
       });
       if (!createdThreadId) {
         return;
@@ -5018,7 +5025,7 @@ export function ChatPanel() {
                       metaKey: e.metaKey,
                       shiftKey: e.shiftKey,
                       isComposing: e.nativeEvent.isComposing,
-                    })) {
+                    }, enterToSend)) {
                       e.preventDefault();
                       if (streaming && !canSteerActiveTurn) {
                         return;
@@ -5287,6 +5294,30 @@ export function ChatPanel() {
               <div style={{ flex: 1 }} />
 
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {!showSpecialInputComposer && (
+                  <button
+                    type="button"
+                    onClick={toggleEnterToSend}
+                    title={enterToSend ? t("panel.enterToSendOn") : t("panel.enterToSendOff")}
+                    style={{
+                      padding: "3px 8px",
+                      borderRadius: "var(--radius-sm)",
+                      background: enterToSend ? "rgba(var(--accent-rgb, 99, 102, 241), 0.12)" : "transparent",
+                      color: enterToSend ? "var(--accent)" : "var(--text-4)",
+                      border: "none",
+                      fontSize: 10,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 3,
+                      opacity: enterToSend ? 1 : 0.6,
+                      transition: "all var(--duration-fast) var(--ease-out)",
+                    }}
+                  >
+                    ⏎
+                  </button>
+                )}
                 {streaming && !showSpecialInputComposer && (
                   <button
                     type="button"

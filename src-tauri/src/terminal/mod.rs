@@ -1576,9 +1576,10 @@ fn apply_terminal_env(cmd: &mut CommandBuilder, config: &TerminalEnvConfig) {
     }
 
     // Auth-critical variables for git/SSH/GPG operations (all platforms).
-    // Without these, git push/pull fails with 403 or SSH errors when Panes
-    // is launched from a GUI context (macOS Dock, Linux desktop launcher)
-    // that does not inherit the user's shell session environment.
+    // These are passed through when Panes itself already has them available
+    // in its environment snapshot (for example, when launched from a shell).
+    // GUI launches that do not inherit the user's shell environment need a
+    // separate mechanism to source these values before they can be forwarded.
     if let Some(value) = config.snapshot.ssh_auth_sock.as_deref() {
         cmd.env("SSH_AUTH_SOCK", value);
     }
@@ -2474,6 +2475,71 @@ mod tests {
         assert!(config.roaming_app_data.is_none());
         assert!(config.temp.is_none());
         assert!(config.tmp.is_none());
+    }
+
+    #[test]
+    fn auth_env_vars_are_passed_through_in_config() {
+        let config = build_terminal_env_config_for(
+            false,
+            TerminalEnvInputs {
+                home: Some("/home/panes".to_string()),
+                path: Some("/usr/bin".to_string()),
+                ssh_auth_sock: Some("/tmp/ssh-agent.sock".to_string()),
+                ssh_agent_pid: Some("12345".to_string()),
+                git_askpass: Some("/usr/lib/git-askpass".to_string()),
+                git_ssh_command: Some("ssh -i ~/.ssh/id_ed25519".to_string()),
+                gpg_agent_info: Some("/tmp/gpg-agent:12345:1".to_string()),
+                gnome_keyring_control: Some("/run/user/1000/keyring".to_string()),
+                dbus_session_bus_address: Some("unix:path=/run/user/1000/bus".to_string()),
+                ..TerminalEnvInputs::default()
+            },
+        );
+
+        assert_eq!(
+            config.snapshot.ssh_auth_sock.as_deref(),
+            Some("/tmp/ssh-agent.sock")
+        );
+        assert_eq!(config.snapshot.ssh_agent_pid.as_deref(), Some("12345"));
+        assert_eq!(
+            config.snapshot.git_askpass.as_deref(),
+            Some("/usr/lib/git-askpass")
+        );
+        assert_eq!(
+            config.snapshot.git_ssh_command.as_deref(),
+            Some("ssh -i ~/.ssh/id_ed25519")
+        );
+        assert_eq!(
+            config.snapshot.gpg_agent_info.as_deref(),
+            Some("/tmp/gpg-agent:12345:1")
+        );
+        assert_eq!(
+            config.snapshot.gnome_keyring_control.as_deref(),
+            Some("/run/user/1000/keyring")
+        );
+        assert_eq!(
+            config.snapshot.dbus_session_bus_address.as_deref(),
+            Some("unix:path=/run/user/1000/bus")
+        );
+    }
+
+    #[test]
+    fn auth_env_vars_are_none_when_not_set() {
+        let config = build_terminal_env_config_for(
+            false,
+            TerminalEnvInputs {
+                home: Some("/home/panes".to_string()),
+                path: Some("/usr/bin".to_string()),
+                ..TerminalEnvInputs::default()
+            },
+        );
+
+        assert!(config.snapshot.ssh_auth_sock.is_none());
+        assert!(config.snapshot.ssh_agent_pid.is_none());
+        assert!(config.snapshot.git_askpass.is_none());
+        assert!(config.snapshot.git_ssh_command.is_none());
+        assert!(config.snapshot.gpg_agent_info.is_none());
+        assert!(config.snapshot.gnome_keyring_control.is_none());
+        assert!(config.snapshot.dbus_session_bus_address.is_none());
     }
 
     #[test]

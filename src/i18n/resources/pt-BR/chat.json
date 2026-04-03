@@ -322,6 +322,8 @@
     "newActivity": "Nova atividade",
     "jumpToLatest": "Ir para a mais recente",
     "stop": "Parar",
+    "enterToSendOn": "Enter para enviar (ativo) — Shift+Enter para nova linha",
+    "enterToSendOff": "⌘+Enter para enviar — clique para mudar para Enter",
     "loadingTerminal": "Carregando terminal...",
     "loadingEditor": "Carregando editor...",
     "multipleRepoWriteEnable": "Habilitar gravação em múltiplos repositórios",
