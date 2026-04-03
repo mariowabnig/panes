@@ -136,18 +136,12 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
   const harnessLaunch = useHarnessStore((s) => s.launch);
 
   // Track which completed threads the user has already viewed.
-  // Seed with all already-completed threads on mount so they don't show
-  // a green dot after app relaunch.
-  const seenThreadsInitialized = useRef(false);
+  // Threads that completed before this component mounted (i.e. before the app
+  // session started) never show the green dot. Threads that transition to
+  // "streaming" during this session get their id removed so they show the dot
+  // again when they complete.
+  const sessionStartRef = useRef(new Date().toISOString());
   const seenThreads = useRef<Set<string>>(new Set());
-  if (!seenThreadsInitialized.current) {
-    seenThreadsInitialized.current = true;
-    for (const t of threads) {
-      if (t.status === "completed") {
-        seenThreads.current.add(t.id);
-      }
-    }
-  }
   if (activeThreadId) seenThreads.current.add(activeThreadId);
 
   // Drag-and-drop reordering state
@@ -697,7 +691,11 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
                                   seenThreads.current.delete(thread.id);
                                   return <Loader2 size={12} className="sb-thread-status-spinner" />;
                                 }
-                                if (thread.status === "completed" && !seenThreads.current.has(thread.id)) {
+                                if (
+                                  thread.status === "completed" &&
+                                  !seenThreads.current.has(thread.id) &&
+                                  thread.lastActivityAt > sessionStartRef.current
+                                ) {
                                   return <span className="sb-thread-status-done" />;
                                 }
                                 return null;
