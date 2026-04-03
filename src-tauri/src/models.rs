@@ -810,6 +810,14 @@ pub struct TerminalEnvSnapshotDto {
     pub lc_all: Option<String>,
     pub lc_ctype: Option<String>,
     pub path: Option<String>,
+    // Auth-critical variables for git/SSH/GPG operations
+    pub ssh_auth_sock: Option<String>,
+    pub ssh_agent_pid: Option<String>,
+    pub git_askpass: Option<String>,
+    pub git_ssh_command: Option<String>,
+    pub gpg_agent_info: Option<String>,
+    pub gnome_keyring_control: Option<String>,
+    pub dbus_session_bus_address: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

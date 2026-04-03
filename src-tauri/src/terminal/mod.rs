@@ -1306,6 +1306,14 @@ struct TerminalEnvInputs {
     default_local_app_data: Option<String>,
     default_roaming_app_data: Option<String>,
     default_temp_dir: Option<String>,
+    // Auth-critical variables for git/SSH operations
+    ssh_auth_sock: Option<String>,
+    ssh_agent_pid: Option<String>,
+    git_askpass: Option<String>,
+    git_ssh_command: Option<String>,
+    gpg_agent_info: Option<String>,
+    gnome_keyring_control: Option<String>,
+    dbus_session_bus_address: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -1368,6 +1376,13 @@ fn read_terminal_env_inputs() -> TerminalEnvInputs {
         default_local_app_data: runtime_env::local_app_data_dir().map(path_to_string),
         default_roaming_app_data: runtime_env::roaming_app_data_dir().map(path_to_string),
         default_temp_dir: Some(path_to_string(std::env::temp_dir())),
+        ssh_auth_sock: read_non_empty_env("SSH_AUTH_SOCK"),
+        ssh_agent_pid: read_non_empty_env("SSH_AGENT_PID"),
+        git_askpass: read_non_empty_env("GIT_ASKPASS"),
+        git_ssh_command: read_non_empty_env("GIT_SSH_COMMAND"),
+        gpg_agent_info: read_non_empty_env("GPG_AGENT_INFO"),
+        gnome_keyring_control: read_non_empty_env("GNOME_KEYRING_CONTROL"),
+        dbus_session_bus_address: read_non_empty_env("DBUS_SESSION_BUS_ADDRESS"),
     }
 }
 
@@ -1388,6 +1403,15 @@ fn build_terminal_env_config_for(is_windows: bool, inputs: TerminalEnvInputs) ->
         .term_program_version
         .or_else(|| Some(env!("CARGO_PKG_VERSION").to_string()));
     let path = inputs.path;
+
+    // Auth-critical variables — passthrough from parent environment
+    let ssh_auth_sock = inputs.ssh_auth_sock;
+    let ssh_agent_pid = inputs.ssh_agent_pid;
+    let git_askpass = inputs.git_askpass;
+    let git_ssh_command = inputs.git_ssh_command;
+    let gpg_agent_info = inputs.gpg_agent_info;
+    let gnome_keyring_control = inputs.gnome_keyring_control;
+    let dbus_session_bus_address = inputs.dbus_session_bus_address;
 
     if is_windows {
         let user_profile = inputs
@@ -1453,6 +1477,13 @@ fn build_terminal_env_config_for(is_windows: bool, inputs: TerminalEnvInputs) ->
                 lc_all: None,
                 lc_ctype: None,
                 path,
+                ssh_auth_sock,
+                ssh_agent_pid,
+                git_askpass,
+                git_ssh_command,
+                gpg_agent_info,
+                gnome_keyring_control,
+                dbus_session_bus_address,
             },
             user_profile,
             local_app_data,
@@ -1503,6 +1534,13 @@ fn build_terminal_env_config_for(is_windows: bool, inputs: TerminalEnvInputs) ->
             lc_all,
             lc_ctype,
             path,
+            ssh_auth_sock,
+            ssh_agent_pid,
+            git_askpass,
+            git_ssh_command,
+            gpg_agent_info,
+            gnome_keyring_control,
+            dbus_session_bus_address,
         },
         user_profile: None,
         local_app_data: None,
@@ -1535,6 +1573,32 @@ fn apply_terminal_env(cmd: &mut CommandBuilder, config: &TerminalEnvConfig) {
     }
     if let Some(value) = config.snapshot.tmpdir.as_deref() {
         cmd.env("TMPDIR", value);
+    }
+
+    // Auth-critical variables for git/SSH/GPG operations (all platforms).
+    // Without these, git push/pull fails with 403 or SSH errors when Panes
+    // is launched from a GUI context (macOS Dock, Linux desktop launcher)
+    // that does not inherit the user's shell session environment.
+    if let Some(value) = config.snapshot.ssh_auth_sock.as_deref() {
+        cmd.env("SSH_AUTH_SOCK", value);
+    }
+    if let Some(value) = config.snapshot.ssh_agent_pid.as_deref() {
+        cmd.env("SSH_AGENT_PID", value);
+    }
+    if let Some(value) = config.snapshot.git_askpass.as_deref() {
+        cmd.env("GIT_ASKPASS", value);
+    }
+    if let Some(value) = config.snapshot.git_ssh_command.as_deref() {
+        cmd.env("GIT_SSH_COMMAND", value);
+    }
+    if let Some(value) = config.snapshot.gpg_agent_info.as_deref() {
+        cmd.env("GPG_AGENT_INFO", value);
+    }
+    if let Some(value) = config.snapshot.gnome_keyring_control.as_deref() {
+        cmd.env("GNOME_KEYRING_CONTROL", value);
+    }
+    if let Some(value) = config.snapshot.dbus_session_bus_address.as_deref() {
+        cmd.env("DBUS_SESSION_BUS_ADDRESS", value);
     }
 
     if config.is_windows {
