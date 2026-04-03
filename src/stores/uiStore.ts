@@ -6,6 +6,7 @@ import {
 
 const SIDEBAR_PINNED_KEY = "panes:sidebarPinned";
 const GIT_PANEL_PINNED_KEY = "panes:gitPanelPinned";
+const ENTER_TO_SEND_KEY = "panes:enterToSend";
 
 interface MessageFocusTarget {
   threadId: string;
@@ -46,6 +47,9 @@ interface UiState {
   openWorkspaceSettings: (workspaceId: string) => void;
   setMessageFocusTarget: (target: { threadId: string; messageId: string }) => void;
   clearMessageFocusTarget: () => void;
+  enterToSend: boolean;
+  setEnterToSend: (enabled: boolean) => void;
+  toggleEnterToSend: () => void;
 }
 
 const savedPinned = (() => {
@@ -59,6 +63,14 @@ const savedPinned = (() => {
 const savedGitPanelPinned = (() => {
   try {
     return localStorage.getItem(GIT_PANEL_PINNED_KEY);
+  } catch {
+    return null;
+  }
+})();
+
+const savedEnterToSend = (() => {
+  try {
+    return localStorage.getItem(ENTER_TO_SEND_KEY);
   } catch {
     return null;
   }
@@ -196,4 +208,23 @@ export const useUiStore = create<UiState>((set) => ({
       },
     }),
   clearMessageFocusTarget: () => set({ messageFocusTarget: null }),
+  enterToSend: savedEnterToSend === "true",
+  setEnterToSend: (enabled) => {
+    try {
+      localStorage.setItem(ENTER_TO_SEND_KEY, String(enabled));
+    } catch {
+      // Ignore storage failures in non-browser/test environments.
+    }
+    set({ enterToSend: enabled });
+  },
+  toggleEnterToSend: () =>
+    set((state) => {
+      const next = !state.enterToSend;
+      try {
+        localStorage.setItem(ENTER_TO_SEND_KEY, String(next));
+      } catch {
+        // Ignore storage failures in non-browser/test environments.
+      }
+      return { enterToSend: next };
+    }),
 }));

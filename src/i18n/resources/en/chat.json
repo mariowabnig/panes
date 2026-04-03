@@ -322,6 +322,8 @@
     "newActivity": "New activity",
     "jumpToLatest": "Jump to latest",
     "stop": "Stop",
+    "enterToSendOn": "Enter to send (on) — Shift+Enter for newline",
+    "enterToSendOff": "⌘+Enter to send — click to switch to Enter",
     "loadingTerminal": "Loading terminal...",
     "loadingEditor": "Loading editor...",
     "multipleRepoWriteEnable": "Enable multi-repo writes",

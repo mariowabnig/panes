@@ -810,13 +810,21 @@ pub struct TerminalEnvSnapshotDto {
     pub lc_all: Option<String>,
     pub lc_ctype: Option<String>,
     pub path: Option<String>,
-    // Auth-critical variables for git/SSH/GPG operations
+    // Auth-critical variables for git/SSH/GPG operations.
+    // These are used internally for PTY env but never serialized to frontend diagnostics.
+    #[serde(skip_serializing, skip_deserializing)]
     pub ssh_auth_sock: Option<String>,
+    #[serde(skip_serializing, skip_deserializing)]
     pub ssh_agent_pid: Option<String>,
+    #[serde(skip_serializing, skip_deserializing)]
     pub git_askpass: Option<String>,
+    #[serde(skip_serializing, skip_deserializing)]
     pub git_ssh_command: Option<String>,
+    #[serde(skip_serializing, skip_deserializing)]
     pub gpg_agent_info: Option<String>,
+    #[serde(skip_serializing, skip_deserializing)]
     pub gnome_keyring_control: Option<String>,
+    #[serde(skip_serializing, skip_deserializing)]
     pub dbus_session_bus_address: Option<String>,
 }
 
