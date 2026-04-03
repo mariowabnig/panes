@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import {
   Plus,
   FolderGit2,
+  GitBranch as GitBranchIcon,
   MessageSquare,
   ChevronDown,
   ChevronRight,
@@ -46,7 +47,10 @@ import { UpdateDialog } from "../onboarding/UpdateDialog";
 import { ConfirmDialog } from "../shared/ConfirmDialog";
 import { WorkspaceMoreMenu } from "../workspace/WorkspaceMoreMenu";
 import { normalizeSidebarCollapsedState } from "./sidebarCollapseState";
-import type { Thread, Workspace } from "../../types";
+import { useTerminalStore } from "../../stores/terminalStore";
+import { useHarnessStore } from "../../stores/harnessStore";
+import { writeCommandToNewSession } from "../../lib/ipc";
+import type { Thread, Workspace, WorkspaceStartupWorktreeConfig } from "../../types";
 
 interface ProjectGroup {
   workspace: Workspace;
@@ -119,6 +123,15 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
   const openTerminalNotificationSettings = useTerminalNotificationSettingsStore((s) => s.openModal);
   const hasUpdate = updateStatus === "available" && !updateSnoozed;
   const keepAwakeAvailable = canToggleKeepAwake(keepAwakeState);
+  const repos = useWorkspaceStore((s) => s.repos);
+  const activeRepos = useMemo(
+    () => repos.filter((r) => r.isActive).map((r) => ({ path: r.path, name: r.name, defaultBranch: r.defaultBranch })),
+    [repos],
+  );
+  const createMultiSessionGroup = useTerminalStore((s) => s.createMultiSessionGroup);
+  const allHarnesses = useHarnessStore((s) => s.harnesses);
+  const installedHarnesses = useMemo(() => allHarnesses.filter((h) => h.found), [allHarnesses]);
+  const harnessLaunch = useHarnessStore((s) => s.launch);
 
   const projects = useMemo<ProjectGroup[]>(
     () =>
@@ -267,6 +280,49 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
     if (!createdThreadId) return;
     setCollapsed((prev) => ({ ...prev, [project.id]: false }));
     await bindChatThread(createdThreadId);
+  }
+
+  async function onCreateBranchThread(project: Workspace) {
+    if (project.id !== activeWorkspaceId) {
+      await setActiveWorkspace(project.id);
+    }
+
+    // Find the preferred harness (claude-code first, then any installed)
+    const preferredHarness =
+      installedHarnesses.find((h) => h.id === "claude-code") ?? installedHarnesses[0];
+    if (!preferredHarness) return;
+
+    const command = await harnessLaunch(preferredHarness.id);
+    if (!command) return;
+
+    const repo = activeRepos[0];
+    const worktreeConfig: WorkspaceStartupWorktreeConfig | null = repo
+      ? {
+          enabled: true,
+          repoMode: "fixed_repo",
+          repoPath: repo.path,
+          baseBranch: repo.defaultBranch,
+          baseDir: ".panes/worktrees",
+          branchPrefix: "panes/thread",
+        }
+      : null;
+
+    const result = await createMultiSessionGroup(
+      project.id,
+      [{ harnessId: preferredHarness.id, name: preferredHarness.name }],
+      worktreeConfig,
+      120,
+      30,
+    );
+    if (!result) return;
+
+    const sessionId = result.sessionIds[0];
+    if (sessionId) {
+      void writeCommandToNewSession(project.id, sessionId, command);
+    }
+
+    // Switch to terminal view so the user sees the new session
+    setActiveView("harnesses");
   }
 
   function onDeleteWorkspace(project: Workspace) {
@@ -453,6 +509,27 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
             <Plus size={14} strokeWidth={2.2} />
             {t("app:sidebar.newThread")}
           </button>
+
+          {/* New branch thread */}
+          {installedHarnesses.length > 0 && (
+            <button
+              type="button"
+              className="sb-new-thread-btn"
+              style={{ margin: 0 }}
+              title={t("app:terminal.newThreadTooltip")}
+              onClick={() => {
+                const activeProject = projects.find(
+                  (p) => p.workspace.id === activeWorkspaceId,
+                );
+                if (activeProject) {
+                  void onCreateBranchThread(activeProject.workspace);
+                }
+              }}
+            >
+              <GitBranchIcon size={14} strokeWidth={2.2} />
+              {t("app:sidebar.newBranchThread")}
+            </button>
+          )}
 
           {/* Agents */}
           <button
