@@ -203,6 +203,21 @@ impl ClaudeTransport {
         if let Some(module_specifier) = sdk_module_specifier {
             command.env("CLAUDE_AGENT_SDK_MODULE", module_specifier);
         }
+        // Pass through SSH/GPG auth env vars so the sidecar (and the Claude
+        // agent running inside it) can git-push over SSH even when Panes was
+        // launched from the Dock without a shell environment.
+        for key in [
+            "SSH_AUTH_SOCK",
+            "SSH_AGENT_PID",
+            "GIT_SSH_COMMAND",
+            "GPG_TTY",
+        ] {
+            if let Ok(value) = std::env::var(key) {
+                if !value.is_empty() {
+                    command.env(key, value);
+                }
+            }
+        }
         let mut child = command
             .arg(&sidecar_path)
             .current_dir(&sidecar_dir)

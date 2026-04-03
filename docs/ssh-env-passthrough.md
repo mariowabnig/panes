@@ -32,15 +32,11 @@ open /Applications/Panes.app
 
 This works because `open` passes the current environment to the launched app.
 
-## Chat agent (Claude sidecar / Codex)
+## Chat agent (Claude sidecar)
 
-The SSH env passthrough fix only applies to **terminal sessions** (PTY). The chat agents (Claude sidecar, Codex) run as separate subprocesses and do not go through the PTY — so `SSH_AUTH_SOCK` injection does not help them.
+The Claude sidecar now also receives `SSH_AUTH_SOCK`, `SSH_AGENT_PID`, `GIT_SSH_COMMAND`, and `GPG_TTY` at spawn time (`claude_sidecar.rs`). This means `git push` over SSH works from chat-mode Claude, not just from PTY terminal sessions.
 
-However, chat agents can still `git push` over SSH if:
-1. The repo remote uses SSH (`git@github.com:...`) instead of HTTPS
-2. The SSH key is configured in `~/.ssh/config` with `AddKeysToAgent yes` and `UseKeychain yes`
-
-With this setup, git reads the key directly from `~/.ssh/config` without needing the SSH agent socket. All repos in `~/Downloads/Coding/` were switched to SSH remotes on 2026-04-03.
+All repos in `~/Downloads/Coding/` use SSH remotes (`git@github.com:...`) as of 2026-04-03.
 
 ## Building from the fork
 
