@@ -26,31 +26,25 @@ See implementation details below.
 
 ---
 
-## Codex-style Queued Messages — Implementation
+## Codex-style Message Queue + Steer — Implementation
 
-### Phase 1 (implemented):
-Queue ONE message during any engine's streaming turn. Auto-sent on successful turn completion (`status === "completed"`). Cleared on error or interruption.
+### What's implemented:
+- **Multi-message queue**: Submit multiple messages while the agent is streaming. Each is added to a FIFO queue.
+- **Auto-send**: On successful turn completion, the first message in the queue is dequeued and sent automatically. The rest stay queued for subsequent turns.
+- **Steer (interrupt + send)**: Each queued message has a "Send now" button (Zap icon) that cancels the current turn and immediately sends that message. Works for any engine.
+- **Queue management**: Each message has a remove (X) button. "Clear all" link appears when 2+ messages are queued.
+- **Error safety**: Entire queue is cleared on error or interruption (not sent into a broken state).
 
 ### How it works:
-- `chatStore.ts`: `queuedMessage: QueuedMessage | null` state + `setQueuedMessage` / `clearQueuedMessage` actions
-- `ChatPanel.tsx onSubmit`: When streaming and can't steer (non-Codex), stores message in queue instead of dropping it
-- `ChatPanel.tsx useEffect`: Watches `streaming` transition from true→false; if `status === "completed"` and there's a queued message, auto-sends it
-- Submit button: Always visible during streaming — shows Clock icon with amber color when in queue mode, Send icon when idle/steer mode
-- Queued indicator: Amber banner above input showing truncated queued message with cancel (X) button
-- Keyboard: Enter/Cmd+Enter during streaming now queues instead of being silently blocked
-
-### UX:
-- User types while agent is streaming → presses Enter → message is queued
-- Amber "Queued: ..." banner appears above input with cancel button
-- Agent finishes → queued message auto-sends immediately
-- If agent errors or is interrupted → queued message is cleared (not sent)
-- Only one message can be queued at a time (new queue overwrites previous)
-
-### Phase 2 (future):
-Claude mid-turn steer — requires Claude sidecar API support for mid-turn injection.
+- `chatStore.ts`: `messageQueue: QueuedMessage[]` + `enqueueMessage` / `removeQueuedMessage` / `clearMessageQueue`
+- `ChatPanel.tsx onSubmit`: Non-Codex streaming → `enqueueMessage`; Codex streaming → `steer()` (native mid-turn inject)
+- `ChatPanel.tsx useEffect`: On `streaming` true→false + `status === "completed"`: dequeues first message and sends it
+- Steer button: `cancel()` then `send()` — interrupts the agent and sends the selected message immediately
+- Submit button: Shows Clock icon (amber) during queue mode, Send icon when idle/steer mode
+- Queue UI: Numbered list of amber banners above input, each with steer + remove buttons
 
 ### Files changed:
-- `src/stores/chatStore.ts` — QueuedMessage type, state, actions
-- `src/components/chat/ChatPanel.tsx` — queue on submit, auto-send effect, queue indicator, submit button
-- `src/i18n/resources/en/chat.json` — queueMessage, queuedPrefix, cancelQueued
+- `src/stores/chatStore.ts` — QueuedMessage type with id, messageQueue array, actions
+- `src/components/chat/ChatPanel.tsx` — queue on submit, auto-send effect, queue list UI, steer handler
+- `src/i18n/resources/en/chat.json` — queueMessage, cancelQueued, steerNow, steerLabel, clearQueue
 - `src/i18n/resources/pt-BR/chat.json` — same keys in Portuguese

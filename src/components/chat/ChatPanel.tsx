@@ -1371,9 +1371,10 @@ export function ChatPanel() {
     error,
     setActiveThread: bindChatThread,
     threadId,
-    queuedMessage,
-    setQueuedMessage,
-    clearQueuedMessage,
+    messageQueue,
+    enqueueMessage,
+    removeQueuedMessage,
+    clearMessageQueue,
   } = useChatStore(
     useShallow((state) => ({
       messages: state.messages,
@@ -1391,9 +1392,10 @@ export function ChatPanel() {
       error: state.error,
       setActiveThread: state.setActiveThread,
       threadId: state.threadId,
-      queuedMessage: state.queuedMessage,
-      setQueuedMessage: state.setQueuedMessage,
-      clearQueuedMessage: state.clearQueuedMessage,
+      messageQueue: state.messageQueue,
+      enqueueMessage: state.enqueueMessage,
+      removeQueuedMessage: state.removeQueuedMessage,
+      clearMessageQueue: state.clearMessageQueue,
     })),
   );
   const messageFocusTarget = useUiStore((s) => s.messageFocusTarget);
@@ -2025,30 +2027,36 @@ export function ChatPanel() {
     threadId,
   ]);
 
-  // Auto-send queued message when streaming ends successfully
+  // Auto-send first queued message when streaming ends successfully
   const prevStreamingForQueueRef = useRef(false);
   useEffect(() => {
     const wasStreaming = prevStreamingForQueueRef.current;
     prevStreamingForQueueRef.current = streaming;
 
-    if (wasStreaming && !streaming && queuedMessage && status === "completed") {
-      const queued = queuedMessage;
-      clearQueuedMessage();
-      void send(queued.text, {
-        modelId: selectedModelId,
-        engineId: selectedEngineId,
-        reasoningEffort: selectedEffort,
-        attachments: queued.attachments,
-        inputItems: queued.inputItems,
-        planMode: queued.planMode,
-      });
+    if (wasStreaming && !streaming && messageQueue.length > 0) {
+      if (status === "completed") {
+        const [next, ...rest] = messageQueue;
+        // Clear the sent message, keep the rest
+        if (rest.length > 0) {
+          // Remove just the first one
+          removeQueuedMessage(next.id);
+        } else {
+          clearMessageQueue();
+        }
+        void send(next.text, {
+          modelId: selectedModelId,
+          engineId: selectedEngineId,
+          reasoningEffort: selectedEffort,
+          attachments: next.attachments,
+          inputItems: next.inputItems,
+          planMode: next.planMode,
+        });
+      } else {
+        // Clear entire queue on error or interruption
+        clearMessageQueue();
+      }
     }
-
-    // Clear queued message on error or interruption
-    if (wasStreaming && !streaming && queuedMessage && status !== "completed") {
-      clearQueuedMessage();
-    }
-  }, [streaming, status, queuedMessage, clearQueuedMessage, send, selectedModelId, selectedEngineId, selectedEffort]);
+  }, [streaming, status, messageQueue, removeQueuedMessage, clearMessageQueue, send, selectedModelId, selectedEngineId, selectedEffort]);
 
   const pendingApprovalBannerRows = useMemo(
     () =>
@@ -3394,7 +3402,7 @@ export function ChatPanel() {
         }
       } else {
         // Queue message for auto-send when current turn completes
-        setQueuedMessage({
+        enqueueMessage({
           text,
           attachments: currentAttachments.length > 0 ? currentAttachments : undefined,
           inputItems: undefined,
@@ -4896,47 +4904,107 @@ export function ChatPanel() {
             </div>
           )}
 
-          {/* Queued message indicator */}
-          {queuedMessage && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "6px 12px",
-                margin: "0 12px 4px",
-                borderRadius: "var(--radius-sm)",
-                background: "rgba(245, 158, 11, 0.08)",
-                border: "1px solid rgba(245, 158, 11, 0.2)",
-                fontSize: 12,
-                color: "var(--text-2)",
-              }}
-            >
-              <Clock size={12} style={{ color: "var(--warning, #f59e0b)", flexShrink: 0 }} />
-              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {t("panel.queuedPrefix")}{" "}
-                <span style={{ color: "var(--text-1)" }}>
-                  {queuedMessage.text.length > 80
-                    ? `${queuedMessage.text.slice(0, 80)}...`
-                    : queuedMessage.text}
-                </span>
-              </span>
-              <button
-                type="button"
-                onClick={clearQueuedMessage}
-                title={t("panel.cancelQueued")}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--text-4)",
-                  cursor: "pointer",
-                  padding: 2,
-                  display: "flex",
-                  flexShrink: 0,
-                }}
-              >
-                <X size={12} />
-              </button>
+          {/* Message queue indicator */}
+          {messageQueue.length > 0 && (
+            <div style={{ margin: "0 12px 4px", display: "flex", flexDirection: "column", gap: 2 }}>
+              {messageQueue.map((queued, index) => (
+                <div
+                  key={queued.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "5px 10px",
+                    borderRadius: "var(--radius-sm)",
+                    background: "rgba(245, 158, 11, 0.08)",
+                    border: "1px solid rgba(245, 158, 11, 0.15)",
+                    fontSize: 11,
+                    color: "var(--text-2)",
+                  }}
+                >
+                  <Clock size={11} style={{ color: "var(--warning, #f59e0b)", flexShrink: 0 }} />
+                  <span style={{ color: "var(--text-4)", fontWeight: 500, flexShrink: 0 }}>
+                    {index + 1}
+                  </span>
+                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span style={{ color: "var(--text-1)" }}>
+                      {queued.text.length > 60
+                        ? `${queued.text.slice(0, 60)}...`
+                        : queued.text}
+                    </span>
+                  </span>
+                  {streaming && (
+                    <button
+                      type="button"
+                      title={t("panel.steerNow")}
+                      onClick={() => {
+                        const msg = queued;
+                        removeQueuedMessage(msg.id);
+                        void cancel().then(() => {
+                          void send(msg.text, {
+                            modelId: selectedModelId,
+                            engineId: selectedEngineId,
+                            reasoningEffort: selectedEffort,
+                            attachments: msg.attachments,
+                            inputItems: msg.inputItems,
+                            planMode: msg.planMode,
+                          });
+                        });
+                      }}
+                      style={{
+                        background: "rgba(96, 165, 250, 0.10)",
+                        border: "1px solid rgba(96, 165, 250, 0.2)",
+                        color: "var(--info, #60a5fa)",
+                        cursor: "pointer",
+                        padding: "2px 6px",
+                        borderRadius: "var(--radius-sm)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 3,
+                        fontSize: 10,
+                        fontWeight: 500,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Zap size={10} />
+                      {t("panel.steerLabel")}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeQueuedMessage(queued.id)}
+                    title={t("panel.cancelQueued")}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--text-4)",
+                      cursor: "pointer",
+                      padding: 2,
+                      display: "flex",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <X size={11} />
+                  </button>
+                </div>
+              ))}
+              {messageQueue.length > 1 && (
+                <button
+                  type="button"
+                  onClick={clearMessageQueue}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--text-4)",
+                    cursor: "pointer",
+                    fontSize: 10,
+                    padding: "2px 10px",
+                    textAlign: "left",
+                  }}
+                >
+                  {t("panel.clearQueue")}
+                </button>
+              )}
             </div>
           )}
 
@@ -5441,7 +5509,7 @@ export function ChatPanel() {
                   return (
                     <button
                       type="submit"
-                      disabled={!hasInput && !queuedMessage}
+                      disabled={!hasInput}
                       title={buttonTitle}
                       aria-label={buttonTitle}
                       style={{
