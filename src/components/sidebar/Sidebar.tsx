@@ -90,6 +90,7 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
     removeWorkspace,
     restoreWorkspace,
     refreshArchivedWorkspaces,
+    reorderWorkspaces,
     error,
   } = useWorkspaceStore();
   const {
@@ -137,6 +138,10 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
   // Track which completed threads the user has already viewed
   const seenThreads = useRef<Set<string>>(new Set());
   if (activeThreadId) seenThreads.current.add(activeThreadId);
+
+  // Drag-and-drop reordering state
+  const draggedProjectId = useRef<string | null>(null);
+  const [dragOverProjectId, setDragOverProjectId] = useState<string | null>(null);
 
   const projects = useMemo<ProjectGroup[]>(
     () =>
@@ -582,7 +587,44 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
             const hasMore = project.threads.length > MAX_VISIBLE_THREADS;
 
             return (
-              <div key={project.workspace.id} style={{ marginBottom: 2 }}>
+              <div
+                key={project.workspace.id}
+                style={{ marginBottom: 2 }}
+                draggable
+                onDragStart={(e) => {
+                  draggedProjectId.current = project.workspace.id;
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", project.workspace.id);
+                }}
+                onDragOver={(e) => {
+                  if (!draggedProjectId.current || draggedProjectId.current === project.workspace.id) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  setDragOverProjectId(project.workspace.id);
+                }}
+                onDragLeave={() => {
+                  setDragOverProjectId((prev) => prev === project.workspace.id ? null : prev);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOverProjectId(null);
+                  const fromId = draggedProjectId.current;
+                  draggedProjectId.current = null;
+                  if (!fromId || fromId === project.workspace.id) return;
+                  const ids = workspaces.map((w) => w.id);
+                  const fromIdx = ids.indexOf(fromId);
+                  const toIdx = ids.indexOf(project.workspace.id);
+                  if (fromIdx === -1 || toIdx === -1) return;
+                  ids.splice(fromIdx, 1);
+                  ids.splice(toIdx, 0, fromId);
+                  void reorderWorkspaces(ids);
+                }}
+                onDragEnd={() => {
+                  draggedProjectId.current = null;
+                  setDragOverProjectId(null);
+                }}
+                className={dragOverProjectId === project.workspace.id ? "sb-project-drag-over" : ""}
+              >
                 {/* Project header */}
                 <button
                   type="button"

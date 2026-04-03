@@ -60,10 +60,10 @@ pub fn upsert_workspace(
 pub fn list_workspaces(db: &Database) -> anyhow::Result<Vec<WorkspaceDto>> {
     let conn = db.connect()?;
     let mut stmt = conn.prepare(
-        "SELECT id, name, root_path, scan_depth, created_at, last_opened_at
+        "SELECT id, name, root_path, scan_depth, created_at, last_opened_at, sort_order
      FROM workspaces
      WHERE archived_at IS NULL
-     ORDER BY last_opened_at DESC",
+     ORDER BY CASE WHEN sort_order = 0 THEN 1 ELSE 0 END, sort_order ASC, last_opened_at DESC",
     )?;
 
     let rows = stmt.query_map([], map_workspace_row)?;
@@ -76,10 +76,22 @@ pub fn list_workspaces(db: &Database) -> anyhow::Result<Vec<WorkspaceDto>> {
     Ok(out)
 }
 
+pub fn reorder_workspaces(db: &Database, workspace_ids: &[String]) -> anyhow::Result<()> {
+    let conn = db.connect()?;
+    let mut stmt = conn
+        .prepare("UPDATE workspaces SET sort_order = ?1 WHERE id = ?2")
+        .context("failed to prepare reorder statement")?;
+    for (i, id) in workspace_ids.iter().enumerate() {
+        stmt.execute(params![i as i64 + 1, id])
+            .context("failed to update workspace sort_order")?;
+    }
+    Ok(())
+}
+
 pub fn list_archived_workspaces(db: &Database) -> anyhow::Result<Vec<WorkspaceDto>> {
     let conn = db.connect()?;
     let mut stmt = conn.prepare(
-        "SELECT id, name, root_path, scan_depth, created_at, last_opened_at
+        "SELECT id, name, root_path, scan_depth, created_at, last_opened_at, sort_order
      FROM workspaces
      WHERE archived_at IS NOT NULL
      ORDER BY archived_at DESC",
@@ -348,7 +360,7 @@ fn get_workspace_by_root(
     root_path: &str,
 ) -> anyhow::Result<WorkspaceDto> {
     conn.query_row(
-        "SELECT id, name, root_path, scan_depth, created_at, last_opened_at
+        "SELECT id, name, root_path, scan_depth, created_at, last_opened_at, sort_order
      FROM workspaces
      WHERE root_path = ?1",
         params![root_path],
@@ -383,7 +395,7 @@ fn get_workspace_by_id_optional(
     workspace_id: &str,
 ) -> anyhow::Result<Option<WorkspaceDto>> {
     conn.query_row(
-        "SELECT id, name, root_path, scan_depth, created_at, last_opened_at
+        "SELECT id, name, root_path, scan_depth, created_at, last_opened_at, sort_order
      FROM workspaces
      WHERE id = ?1",
         params![workspace_id],
@@ -410,6 +422,7 @@ fn map_workspace_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<WorkspaceDto> 
         scan_depth: row.get(3)?,
         created_at: row.get(4)?,
         last_opened_at: row.get(5)?,
+        sort_order: row.get(6)?,
     })
 }
 

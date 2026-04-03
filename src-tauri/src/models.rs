@@ -10,6 +10,7 @@ pub struct WorkspaceDto {
     pub scan_depth: i64,
     pub created_at: String,
     pub last_opened_at: String,
+    pub sort_order: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

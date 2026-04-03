@@ -203,6 +203,7 @@ pub fn run() {
             commands::workspace::set_repo_git_active,
             commands::workspace::set_workspace_git_active_repos,
             commands::workspace::has_workspace_git_selection,
+            commands::workspace::reorder_workspaces,
             commands::workspace::archive_workspace,
             commands::workspace::restore_workspace,
             commands::workspace::delete_workspace,

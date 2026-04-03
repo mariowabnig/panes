@@ -7,6 +7,7 @@ export interface Workspace {
   scanDepth: number;
   createdAt: string;
   lastOpenedAt: string;
+  sortOrder: number;
 }
 
 export interface KeepAwakeState {

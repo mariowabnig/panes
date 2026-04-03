@@ -129,6 +129,7 @@ impl Database {
         ensure_workspace_startup_columns(&conn)?;
         ensure_runtime_columns(&conn)?;
         ensure_messages_audit_columns(&conn)?;
+        ensure_workspace_sort_order_column(&conn)?;
         repair_normalized_workspace_and_repo_paths(&mut conn)?;
         Ok(())
     }
@@ -1006,6 +1007,11 @@ mod tests {
         assert_eq!(repos[0].trust_level.as_str(), "restricted");
         assert!(repos[0].is_active);
     }
+}
+
+fn ensure_workspace_sort_order_column(conn: &Connection) -> anyhow::Result<()> {
+    ensure_column(conn, "workspaces", "sort_order", "INTEGER NOT NULL DEFAULT 0")?;
+    Ok(())
 }
 
 fn ensure_column(

@@ -94,6 +94,7 @@ export const ipc = {
     invoke<void>("show_agent_notification", { title, body }),
   listWorkspaces: () => invoke<Workspace[]>("list_workspaces"),
   listArchivedWorkspaces: () => invoke<Workspace[]>("list_archived_workspaces"),
+  reorderWorkspaces: (workspaceIds: string[]) => invoke<void>("reorder_workspaces", { workspaceIds }),
   openWorkspace: (path: string, scanDepth?: number) =>
     invoke<Workspace>("open_workspace", {
       path,

@@ -71,6 +71,17 @@ pub async fn list_workspaces(state: State<'_, AppState>) -> Result<Vec<Workspace
 }
 
 #[tauri::command]
+pub async fn reorder_workspaces(
+    state: State<'_, AppState>,
+    workspace_ids: Vec<String>,
+) -> Result<(), String> {
+    run_db(state.db.clone(), move |db| {
+        db::workspaces::reorder_workspaces(db, &workspace_ids)
+    })
+    .await
+}
+
+#[tauri::command]
 pub async fn list_archived_workspaces(
     state: State<'_, AppState>,
 ) -> Result<Vec<WorkspaceDto>, String> {

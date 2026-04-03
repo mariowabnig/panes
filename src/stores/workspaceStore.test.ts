@@ -44,6 +44,7 @@ function makeWorkspace(id: string, rootPath: string): Workspace {
     scanDepth: 3,
     createdAt: new Date(0).toISOString(),
     lastOpenedAt: new Date(0).toISOString(),
+    sortOrder: 0,
   };
 }
 

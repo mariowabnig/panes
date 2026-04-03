@@ -31,6 +31,7 @@ interface WorkspaceState {
   setRepoTrustLevel: (repoId: string, trustLevel: TrustLevel) => Promise<void>;
   setAllReposTrustLevel: (trustLevel: TrustLevel) => Promise<void>;
   rescanWorkspace: (workspaceId: string, scanDepth?: number) => Promise<Workspace | null>;
+  reorderWorkspaces: (workspaceIds: string[]) => Promise<void>;
 }
 
 const LAST_WORKSPACE_KEY = "panes:lastActiveWorkspaceId";
@@ -424,5 +425,16 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     } catch (error) {
       set({ error: String(error) });
     }
-  }
+  },
+  reorderWorkspaces: async (workspaceIds) => {
+    const prev = get().workspaces;
+    const byId = new Map(prev.map((w) => [w.id, w]));
+    const reordered = workspaceIds.map((id) => byId.get(id)!).filter(Boolean);
+    set({ workspaces: reordered });
+    try {
+      await ipc.reorderWorkspaces(workspaceIds);
+    } catch {
+      set({ workspaces: prev });
+    }
+  },
 }));
