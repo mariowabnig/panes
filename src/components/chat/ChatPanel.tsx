@@ -3843,6 +3843,26 @@ export function ChatPanel() {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   }
 
+  async function handlePasteImage(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (!item.type.startsWith("image/")) continue;
+      e.preventDefault();
+      const blob = item.getAsFile();
+      if (!blob) continue;
+      const buffer = await blob.arrayBuffer();
+      const data = Array.from(new Uint8Array(buffer));
+      try {
+        const path = await ipc.saveClipboardImage(data, item.type);
+        appendAttachmentsFromPaths([path]);
+      } catch (err) {
+        console.error("Failed to paste image:", err);
+      }
+      return;
+    }
+  }
+
   const onMessageRowHeightChange = useCallback(
     (messageId: string, height: number) => {
       const normalizedHeight = Math.max(56, Math.ceil(height));
@@ -4926,6 +4946,7 @@ export function ChatPanel() {
                   ref={inputRef}
                   rows={3}
                   value={input}
+                  onPaste={(e) => void handlePasteImage(e)}
                   onChange={(e) => {
                     inputHistCursorRef.current = -1;
                     setInput(e.target.value);

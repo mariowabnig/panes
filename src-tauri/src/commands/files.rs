@@ -255,6 +255,29 @@ fn resolve_target_path_for_repo_lookup(
     Ok(parent_canonical.join(file_name))
 }
 
+/// Save raw image bytes (from clipboard paste) to a temp file and return the path.
+#[tauri::command]
+pub async fn save_clipboard_image(data: Vec<u8>, mime_type: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let ext = match mime_type.as_str() {
+            "image/png" => "png",
+            "image/jpeg" => "jpg",
+            "image/gif" => "gif",
+            "image/webp" => "webp",
+            "image/bmp" => "bmp",
+            _ => "png",
+        };
+        let dir = std::env::temp_dir().join("panes-clipboard");
+        std::fs::create_dir_all(&dir).map_err(err_to_string)?;
+        let filename = format!("paste-{}.{}", uuid::Uuid::new_v4(), ext);
+        let path = dir.join(&filename);
+        std::fs::write(&path, &data).map_err(err_to_string)?;
+        Ok(path.to_string_lossy().into_owned())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
 fn err_to_string(error: impl std::fmt::Display) -> String {
     error.to_string()
 }

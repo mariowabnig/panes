@@ -410,6 +410,8 @@ export const ipc = {
     invoke<ReadFileResult>("read_file", { repoPath, filePath }),
   writeFile: (repoPath: string, filePath: string, content: string, workspaceId?: string | null) =>
     invoke<void>("write_file", { repoPath, filePath, content, workspaceId: workspaceId ?? null }),
+  saveClipboardImage: (data: number[], mimeType: string) =>
+    invoke<string>("save_clipboard_image", { data, mimeType }),
   watchGitRepo: (repoPath: string) => invoke<void>("watch_git_repo", { repoPath }),
   addGitWorktree: (repoPath: string, worktreePath: string, branchName: string, baseRef?: string | null) =>
     invoke<GitWorktree>("add_git_worktree", { repoPath, worktreePath, branchName, baseRef: baseRef ?? null }),

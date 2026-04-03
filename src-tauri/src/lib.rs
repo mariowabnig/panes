@@ -262,6 +262,7 @@ pub fn run() {
             commands::files::read_file,
             commands::files::write_file,
             commands::files::reveal_path,
+            commands::files::save_clipboard_image,
             commands::git::watch_git_repo,
             commands::engines::list_engines,
             commands::engines::engine_health,
