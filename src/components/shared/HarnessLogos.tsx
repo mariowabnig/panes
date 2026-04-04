@@ -106,6 +106,7 @@ export function getHarnessIcon(id: string, size = 16): ReactNode {
     case "factory-droid":
       return <span style={style}><FactoryLogo size={Math.round(size * 1.2)} /></span>;
     case "copilot":
+    case "github-copilot":
       return <span style={style}><CopilotLogo size={size} /></span>;
     default:
       return <span style={style}><CodexLogo size={size} /></span>;

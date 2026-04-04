@@ -5,6 +5,7 @@
 ### Features
 
 * **engines:** add GitHub Copilot as a third chat engine alongside Codex and Claude
+* **harness:** add GitHub Copilot to harness detection, install, and launch flows
 
 ## [](https://github.com/wygoralves/panes/compare/v0.51.2...vnull) (2026-04-01)
 

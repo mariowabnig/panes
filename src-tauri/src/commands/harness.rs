@@ -20,7 +20,7 @@ struct HarnessDef {
     name: &'static str,
     description: &'static str,
     command: &'static str,
-    version_flag: &'static str,
+    version_args: &'static [&'static str],
     install_command: Option<&'static str>,
     install_args: &'static [&'static str],
     /// Raw shell script for install (used for curl-pipe installers).
@@ -36,7 +36,7 @@ const HARNESSES: &[HarnessDef] = &[
         name: "Codex CLI",
         description: "Natively integrated — powers the Panes chat engine",
         command: "codex",
-        version_flag: "--version",
+        version_args: &["--version"],
         install_command: Some("npm"),
         install_args: &["install", "-g", "@openai/codex"],
         install_script: None,
@@ -48,7 +48,7 @@ const HARNESSES: &[HarnessDef] = &[
         name: "Claude Code",
         description: "Anthropic's agentic coding tool",
         command: "claude",
-        version_flag: "--version",
+        version_args: &["--version"],
         install_command: Some("npm"),
         install_args: &["install", "-g", "@anthropic-ai/claude-code"],
         install_script: Some("curl -fsSL https://claude.ai/install.sh | bash"),
@@ -56,11 +56,23 @@ const HARNESSES: &[HarnessDef] = &[
         native: false,
     },
     HarnessDef {
+        id: "github-copilot",
+        name: "GitHub Copilot",
+        description: "Natively integrated — powers the Panes Copilot chat engine",
+        command: "gh",
+        version_args: &["copilot", "--version"],
+        install_command: None,
+        install_args: &[],
+        install_script: Some("gh extension install github/copilot-cli"),
+        website: "https://docs.github.com/copilot",
+        native: true,
+    },
+    HarnessDef {
         id: "gemini-cli",
         name: "Gemini CLI",
         description: "Google's AI-powered command-line coding agent",
         command: "gemini",
-        version_flag: "--version",
+        version_args: &["--version"],
         install_command: Some("npm"),
         install_args: &["install", "-g", "@google/gemini-cli"],
         install_script: None,
@@ -72,7 +84,7 @@ const HARNESSES: &[HarnessDef] = &[
         name: "Kiro",
         description: "AI-powered CLI coding agent by AWS",
         command: "kiro-cli",
-        version_flag: "--version",
+        version_args: &["--version"],
         install_command: None,
         install_args: &[],
         install_script: Some("curl -fsSL https://cli.kiro.dev/install | bash"),
@@ -84,7 +96,7 @@ const HARNESSES: &[HarnessDef] = &[
         name: "OpenCode",
         description: "Open-source AI coding assistant",
         command: "opencode",
-        version_flag: "--version",
+        version_args: &["--version"],
         install_command: Some("npm"),
         install_args: &["install", "-g", "opencode-ai"],
         install_script: None,
@@ -96,7 +108,7 @@ const HARNESSES: &[HarnessDef] = &[
         name: "Kilo Code",
         description: "AI-powered code assistant",
         command: "kilo",
-        version_flag: "--version",
+        version_args: &["--version"],
         install_command: Some("npm"),
         install_args: &["install", "-g", "@kilocode/cli"],
         install_script: None,
@@ -108,7 +120,7 @@ const HARNESSES: &[HarnessDef] = &[
         name: "Factory Droid",
         description: "Autonomous coding agent by Factory",
         command: "droid",
-        version_flag: "--version",
+        version_args: &["--version"],
         install_command: None,
         install_args: &[],
         install_script: Some("curl -fsSL https://app.factory.ai/cli | sh"),
@@ -211,7 +223,7 @@ pub async fn launch_harness(harness_id: String) -> Result<String, String> {
 
 async fn detect_harness(def: &HarnessDef) -> HarnessInfo {
     if let Some(path) = runtime_env::resolve_executable(def.command) {
-        if let Some(version) = get_command_version(&path, &[def.version_flag]).await {
+        if let Some(version) = get_command_version(&path, def.version_args).await {
             return HarnessInfo {
                 id: def.id.to_string(),
                 name: def.name.to_string(),
@@ -227,7 +239,8 @@ async fn detect_harness(def: &HarnessDef) -> HarnessInfo {
         }
     }
 
-    if let Some((path, version)) = detect_via_login_shell(def.command, def.version_flag).await {
+    let version_flag_str = def.version_args.join(" ");
+    if let Some((path, version)) = detect_via_login_shell(def.command, &version_flag_str).await {
         return HarnessInfo {
             id: def.id.to_string(),
             name: def.name.to_string(),
