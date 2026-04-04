@@ -17,7 +17,16 @@ interface CopilotToken {
 
 let cachedCopilotToken: CopilotToken | null = null;
 
+// VS Code Copilot OAuth client ID — used for device flow auth
+const COPILOT_CLIENT_ID = "Iv1.b507a08c87ecfe98";
+
+// Persistent OAuth token from device flow (survives across Copilot token refreshes)
+let cachedOAuthToken: string | null = null;
+
 async function getGitHubToken(): Promise<string> {
+  // If we already completed device flow, reuse that token
+  if (cachedOAuthToken) return cachedOAuthToken;
+
   try {
     const { stdout } = await execFileAsync("gh", ["auth", "token"], {
       timeout: 5_000,
@@ -32,14 +41,9 @@ async function getGitHubToken(): Promise<string> {
   }
 }
 
-async function getCopilotToken(): Promise<string> {
-  // Return cached token if still valid (with 60s buffer)
-  if (cachedCopilotToken && cachedCopilotToken.expiresAt > Date.now() + 60_000) {
-    return cachedCopilotToken.token;
-  }
-
-  const ghToken = await getGitHubToken();
-
+async function tryExchangeForCopilotToken(
+  ghToken: string,
+): Promise<CopilotToken | null> {
   const response = await fetch(
     "https://api.github.com/copilot_internal/v2/token",
     {
@@ -51,6 +55,11 @@ async function getCopilotToken(): Promise<string> {
       },
     },
   );
+
+  if (response.status === 404) {
+    // Token lacks copilot scope — need device flow
+    return null;
+  }
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
@@ -72,12 +81,137 @@ async function getCopilotToken(): Promise<string> {
     expires_at: number;
   };
 
-  cachedCopilotToken = {
+  return {
     token: data.token,
-    expiresAt: data.expires_at * 1000, // API returns unix seconds
+    expiresAt: data.expires_at * 1000,
+  };
+}
+
+async function deviceFlowAuth(
+  emit: (event: SidecarEvent) => void,
+): Promise<string> {
+  // Step 1: Request device code
+  const codeResponse = await fetch(
+    "https://github.com/login/device/code",
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        client_id: COPILOT_CLIENT_ID,
+        scope: "read:user",
+      }),
+    },
+  );
+
+  if (!codeResponse.ok) {
+    throw new Error(
+      `Device flow initiation failed: ${codeResponse.status}`,
+    );
+  }
+
+  const codeData = (await codeResponse.json()) as {
+    device_code: string;
+    user_code: string;
+    verification_uri: string;
+    expires_in: number;
+    interval: number;
   };
 
-  return cachedCopilotToken.token;
+  // Notify the user via a notice event to open the verification URL
+  emit({
+    type: "notice",
+    kind: "copilot_device_flow",
+    level: "info",
+    title: "GitHub Copilot Sign In",
+    message: `Open ${codeData.verification_uri} and enter code: ${codeData.user_code}`,
+  });
+
+  // Step 2: Poll for authorization
+  const interval = (codeData.interval || 5) * 1000;
+  const deadline = Date.now() + codeData.expires_in * 1000;
+
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, interval));
+
+    const tokenResponse = await fetch(
+      "https://github.com/login/oauth/access_token",
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          client_id: COPILOT_CLIENT_ID,
+          device_code: codeData.device_code,
+          grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+        }),
+      },
+    );
+
+    const tokenData = (await tokenResponse.json()) as {
+      access_token?: string;
+      error?: string;
+    };
+
+    if (tokenData.access_token) {
+      cachedOAuthToken = tokenData.access_token;
+      return tokenData.access_token;
+    }
+
+    if (
+      tokenData.error === "authorization_pending" ||
+      tokenData.error === "slow_down"
+    ) {
+      continue;
+    }
+
+    throw new Error(
+      `Device flow failed: ${tokenData.error ?? "unknown error"}`,
+    );
+  }
+
+  throw Object.assign(
+    new Error("Device flow timed out — user did not authorize in time"),
+    { isAuthError: true },
+  );
+}
+
+async function getCopilotToken(
+  emit: (event: SidecarEvent) => void,
+): Promise<string> {
+  // Return cached token if still valid (with 60s buffer)
+  if (cachedCopilotToken && cachedCopilotToken.expiresAt > Date.now() + 60_000) {
+    return cachedCopilotToken.token;
+  }
+
+  // Try gh CLI token first
+  const ghToken = await getGitHubToken();
+  const directResult = await tryExchangeForCopilotToken(ghToken);
+
+  if (directResult) {
+    cachedCopilotToken = directResult;
+    return directResult.token;
+  }
+
+  // gh token lacks copilot scope — fall back to device flow
+  const oauthToken = await deviceFlowAuth(emit);
+  const deviceResult = await tryExchangeForCopilotToken(oauthToken);
+
+  if (!deviceResult) {
+    throw Object.assign(
+      new Error(
+        "Copilot token exchange failed after device flow auth. Ensure you have an active GitHub Copilot subscription.",
+      ),
+      { isAuthError: true },
+    );
+  }
+
+  cachedCopilotToken = deviceResult;
+  return deviceResult.token;
 }
 
 // ── Active request tracking (for cancellation) ──────────────────────
@@ -432,12 +566,13 @@ async function* streamCopilotChat(
   model: string,
   requestId: string,
   signal: AbortSignal,
+  emit: (event: SidecarEvent) => void,
 ): AsyncGenerator<
   | { kind: "content"; text: string }
   | { kind: "tool_calls"; calls: ToolCall[] }
   | { kind: "done"; usage?: { input: number; output: number } }
 > {
-  const copilotToken = await getCopilotToken();
+  const copilotToken = await getCopilotToken(emit);
 
   const body: Record<string, unknown> = {
     model,
@@ -701,6 +836,7 @@ export async function* handleRequest(
         model,
         id,
         abortController.signal,
+        _emit,
       )) {
         if (chunk.kind === "content") {
           fullContent += chunk.text;
