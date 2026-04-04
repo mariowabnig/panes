@@ -356,7 +356,10 @@
       "opencode": "Assistente de código open source para chat, edições e fluxos no terminal",
       "kilo-code": "CLI leve de assistência de código para tarefas do dia a dia no repo",
       "factory-droid": "Coding agent autônomo da Factory para implementações maiores"
-    }
+    },
+    "setDefault": "Definir como terminal padrão",
+    "removeDefault": "Remover como terminal padrão",
+    "defaultActive": "Terminal padrão"
   },
   "editor": {
     "closeTab": "Fechar arquivo",

@@ -34,18 +34,22 @@ function HarnessTile({
   harness,
   description,
   selected,
+  isDefault,
   onInstallInTerminal,
   onCopyCommand,
   onLaunch,
   onOpenWebsite,
+  onToggleDefault,
 }: {
   harness: HarnessInfo;
   description: string;
   selected?: boolean;
+  isDefault?: boolean;
   onInstallInTerminal: () => void;
   onCopyCommand: () => void;
   onLaunch: () => void;
   onOpenWebsite: () => void;
+  onToggleDefault: () => void;
 }) {
   const { t } = useTranslation("app");
   const installCmd = getHarnessInstallCommand(harness.id);
@@ -73,6 +77,18 @@ function HarnessTile({
           </div>
         )}
       </div>
+
+      {harness.found && (
+        <button
+          type="button"
+          className={`hp-btn hp-btn-default${isDefault ? " hp-btn-default-active" : ""}`}
+          onClick={onToggleDefault}
+          title={isDefault ? t("harnesses.removeDefault") : t("harnesses.setDefault")}
+        >
+          <Terminal size={11} />
+          {isDefault ? t("harnesses.defaultActive") : t("harnesses.setDefault")}
+        </button>
+      )}
 
       <div className="hp-tile-action">
         {action === "launch" ? (
@@ -126,6 +142,8 @@ export function HarnessPanel() {
   const ensureScanned = useHarnessStore((s) => s.ensureScanned);
   const launch = useHarnessStore((s) => s.launch);
 
+  const defaultHarnessId = useHarnessStore((s) => s.defaultHarnessId);
+  const setDefaultHarnessId = useHarnessStore((s) => s.setDefaultHarnessId);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const activeRepoId = useWorkspaceStore((s) => s.activeRepoId);
   const setLayoutMode = useTerminalStore((s) => s.setLayoutMode);
@@ -280,10 +298,12 @@ export function HarnessPanel() {
                   harness={h}
                   description={t(`harnesses.descriptions.${h.id}`, { defaultValue: h.description })}
                   selected={selectedHarnessId === h.id}
+                  isDefault={defaultHarnessId === h.id}
                   onInstallInTerminal={() => handleInstallInTerminal(h.id)}
                   onCopyCommand={() => handleCopyCommand(h.id)}
                   onLaunch={() => void handleLaunch(h.id)}
                   onOpenWebsite={() => handleOpenWebsite(h.website)}
+                  onToggleDefault={() => setDefaultHarnessId(defaultHarnessId === h.id ? null : h.id)}
                 />
               ))}
             </div>

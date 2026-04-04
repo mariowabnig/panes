@@ -3568,6 +3568,21 @@ export function TerminalPanel({ workspaceId }: TerminalPanelProps) {
         }
         return;
       }
+      // Check for global default harness
+      const globalDefaultId = useHarnessStore.getState().defaultHarnessId;
+      if (globalDefaultId) {
+        const harnessState = useHarnessStore.getState();
+        const harness = harnessState.harnesses.find((h) => h.id === globalDefaultId && h.found);
+        if (harness) {
+          const command = await harnessState.launch(globalDefaultId);
+          const cwd = resolveThreadCwd(workspaceId, null);
+          const sessionId = await createSession(workspaceId, undefined, undefined, globalDefaultId, harness.name, cwd);
+          if (sessionId && command) {
+            void writeCommandToNewSession(workspaceId, sessionId, command);
+          }
+          return;
+        }
+      }
       await createSession(workspaceId);
     };
     void runBootstrap().finally(() => {

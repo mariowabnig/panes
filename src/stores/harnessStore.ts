@@ -4,17 +4,29 @@ import type { HarnessInfo } from "../types";
 
 export type HarnessPhase = "idle" | "scanning" | "error";
 
+const DEFAULT_HARNESS_KEY = "panes:defaultTerminalHarnessId";
+
+function readDefaultHarnessId(): string | null {
+  try {
+    return localStorage.getItem(DEFAULT_HARNESS_KEY);
+  } catch {
+    return null;
+  }
+}
+
 interface HarnessStore {
   phase: HarnessPhase;
   harnesses: HarnessInfo[];
   npmAvailable: boolean;
   error: string | null;
   loadedOnce: boolean;
+  defaultHarnessId: string | null;
 
   scan: () => Promise<void>;
   ensureScanned: () => Promise<void>;
   launch: (harnessId: string) => Promise<string | null>;
   getInstalledHarnesses: () => HarnessInfo[];
+  setDefaultHarnessId: (harnessId: string | null) => void;
 }
 
 let pendingHarnessScan: Promise<void> | null = null;
@@ -63,6 +75,7 @@ export const useHarnessStore = create<HarnessStore>((set, get) => ({
   npmAvailable: false,
   error: null,
   loadedOnce: false,
+  defaultHarnessId: readDefaultHarnessId(),
 
   scan: async () => requestHarnessScan(set, get),
 
@@ -84,5 +97,18 @@ export const useHarnessStore = create<HarnessStore>((set, get) => ({
   getInstalledHarnesses: () => {
     const { harnesses } = get();
     return harnesses.filter((h) => h.found);
+  },
+
+  setDefaultHarnessId: (harnessId: string | null) => {
+    set({ defaultHarnessId: harnessId });
+    try {
+      if (harnessId) {
+        localStorage.setItem(DEFAULT_HARNESS_KEY, harnessId);
+      } else {
+        localStorage.removeItem(DEFAULT_HARNESS_KEY);
+      }
+    } catch {
+      // localStorage unavailable or full; ignore persistence failure.
+    }
   },
 }));
