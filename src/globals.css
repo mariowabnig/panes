@@ -2856,8 +2856,7 @@ button, input, textarea, select {
   border-radius: 0 1px 1px 0;
 }
 
-.sb-project-drag-over,
-.sb-thread-drag-over {
+.sb-project-drag-over {
   border-top: 2px solid var(--accent);
 }
 

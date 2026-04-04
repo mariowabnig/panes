@@ -31,21 +31,26 @@
 **Status:** DONE
 **Date Completed:** 2026-04-04
 
-### Thread pin and drag-reorder
+### Thread pinning
 
 - [x] `src/types.ts` — added `sortOrder: number` and `pinnedAt: string | null` to `Thread` interface
 - [x] `src-tauri/src/models.rs` — added `sort_order` and `pinned_at` fields to `ThreadDto`
-- [x] `src-tauri/src/db/threads.rs` — `reorder_threads` (transactional bulk sort_order update), `toggle_thread_pin` (sets/clears `pinned_at`); all SELECT queries extended to fetch the two new columns; ORDER BY updated to float pinned threads first
-- [x] `src-tauri/src/commands/threads.rs` — `reorder_threads` and `toggle_thread_pin` Tauri commands; test fixture updated
-- [x] `src-tauri/src/db/mod.rs` and `src-tauri/src/lib.rs` — new commands registered
-- [x] `src/lib/ipc.ts` — `ipc.reorderThreads` and `ipc.toggleThreadPin`
-- [x] `src/stores/threadStore.ts` — `reorderThreads` (optimistic reorder + rollback), `toggleThreadPin` (optimistic pin toggle + rollback); `flattenThreadsByWorkspace` sort updated to respect pin and sort_order
-- [x] `src/components/sidebar/Sidebar.tsx` — drag-and-drop reordering on thread list; drop triggers `reorderThreads`
-- [x] `src/components/sidebar/ThreadContextMenu.tsx` — Pin/Unpin menu item added
-- [x] `src/globals.css` — `.sb-thread-drag-over` highlight style
+- [x] `src-tauri/src/db/threads.rs` — `toggle_thread_pin` (sets/clears `pinned_at`); all SELECT queries extended; ORDER BY floats pinned threads first; `restore_thread` resets `sort_order` to 0
+- [x] `src-tauri/src/commands/threads.rs` — `toggle_thread_pin` Tauri command
+- [x] `src-tauri/src/db/mod.rs` and `src-tauri/src/lib.rs` — migration + command registered
+- [x] `src/lib/ipc.ts` — `ipc.toggleThreadPin`
+- [x] `src/stores/threadStore.ts` — `toggleThreadPin` (optimistic + rollback); `flattenThreadsByWorkspace` sort respects pin and sort_order
+- [x] `src/components/sidebar/Sidebar.tsx` — pin indicator icon on pinned threads
+- [x] `src/components/sidebar/ThreadContextMenu.tsx` — "Pin to top" / "Unpin" menu item
 
-**Pin/Reorder Status:** DONE
+**Pinning Status:** DONE
 **Date Completed:** 2026-04-04
+
+### Thread drag-and-drop reordering — REMOVED
+
+Backend infrastructure exists (`reorder_threads` DB function, `sort_order` column, IPC call, store action) but the **UI was removed** because HTML5 native drag-and-drop does not work reliably inside Tauri's WKWebView on macOS. Nested `draggable` elements (`<button>` inside `<div draggable>`) fail — the outer draggable (project) captures the drag before the inner one (thread) can claim it. WebKit also ignores `draggable="true"` on `<button>` elements in some builds.
+
+**To re-enable later:** Use a library like `@dnd-kit/core` or `react-beautiful-dnd` instead of native HTML5 DnD. The backend + store layer (`reorderThreads`, `ipc.reorderThreads`, `sort_order` column) is ready and tested — only the UI drag handlers need reimplementation.
 
 ## Git Push SOCKS Error — Root Cause
 

@@ -108,7 +108,6 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
     renameThread,
     refreshArchivedThreads,
     setThreadUserStatus,
-    reorderThreads,
     toggleThreadPin,
   } = useThreadStore();
   const openOnboarding = useOnboardingStore((state) => state.openOnboarding);
@@ -156,9 +155,6 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
   const draggedProjectId = useRef<string | null>(null);
   const [dragOverProjectId, setDragOverProjectId] = useState<string | null>(null);
 
-  // Thread drag-and-drop reordering state
-  const draggedThreadId = useRef<string | null>(null);
-  const [dragOverThreadId, setDragOverThreadId] = useState<string | null>(null);
 
   const projects = useMemo<ProjectGroup[]>(
     () =>
@@ -721,44 +717,8 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
                             <button
                               key={thread.id}
                               type="button"
-                              className={`sb-thread sb-thread-animate ${isActive ? "sb-thread-active" : ""} ${dragOverThreadId === thread.id ? "sb-thread-drag-over" : ""}`}
+                              className={`sb-thread sb-thread-animate ${isActive ? "sb-thread-active" : ""}`}
                               style={{ animationDelay: `${i * 20}ms` }}
-                              draggable
-                              onDragStart={(e) => {
-                                draggedThreadId.current = thread.id;
-                                e.dataTransfer.effectAllowed = "move";
-                                e.dataTransfer.setData("text/plain", thread.id);
-                                e.stopPropagation();
-                              }}
-                              onDragOver={(e) => {
-                                if (!draggedThreadId.current || draggedThreadId.current === thread.id) return;
-                                e.preventDefault();
-                                e.stopPropagation();
-                                e.dataTransfer.dropEffect = "move";
-                                setDragOverThreadId(thread.id);
-                              }}
-                              onDragLeave={() => {
-                                setDragOverThreadId((prev) => prev === thread.id ? null : prev);
-                              }}
-                              onDrop={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setDragOverThreadId(null);
-                                const fromId = draggedThreadId.current;
-                                draggedThreadId.current = null;
-                                if (!fromId || fromId === thread.id) return;
-                                const ids = project.threads.map((t) => t.id);
-                                const fromIdx = ids.indexOf(fromId);
-                                const toIdx = ids.indexOf(thread.id);
-                                if (fromIdx === -1 || toIdx === -1) return;
-                                ids.splice(fromIdx, 1);
-                                ids.splice(toIdx, 0, fromId);
-                                void reorderThreads(project.workspace.id, ids);
-                              }}
-                              onDragEnd={() => {
-                                draggedThreadId.current = null;
-                                setDragOverThreadId(null);
-                              }}
                               onClick={() => {
                                 if (!isRenaming) void onSelectThread(thread);
                               }}
