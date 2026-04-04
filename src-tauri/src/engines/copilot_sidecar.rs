@@ -643,11 +643,30 @@ impl Engine for CopilotSidecarEngine {
     }
 
     fn models(&self) -> Vec<ModelInfo> {
+        // Helper for the common three-level reasoning effort set.
+        let three_level_efforts = || {
+            vec![
+                ReasoningEffortOption {
+                    reasoning_effort: "low".to_string(),
+                    description: "Quick, efficient responses".to_string(),
+                },
+                ReasoningEffortOption {
+                    reasoning_effort: "medium".to_string(),
+                    description: "Balanced reasoning".to_string(),
+                },
+                ReasoningEffortOption {
+                    reasoning_effort: "high".to_string(),
+                    description: "Deep, thorough reasoning".to_string(),
+                },
+            ]
+        };
+
         vec![
+            // ── Anthropic ─────────────────────────────────────────────
             ModelInfo {
-                id: "gpt-4o".to_string(),
-                display_name: "GPT-4o".to_string(),
-                description: "Fast and capable multimodal model".to_string(),
+                id: "claude-sonnet-4.5".to_string(),
+                display_name: "Claude Sonnet 4.5".to_string(),
+                description: "Copilot's default — fast and capable Anthropic model".to_string(),
                 hidden: false,
                 is_default: true,
                 upgrade: None,
@@ -656,6 +675,48 @@ impl Engine for CopilotSidecarEngine {
                 input_modalities: vec!["text".to_string(), "image".to_string()],
                 supports_personality: false,
                 default_reasoning_effort: "medium".to_string(),
+                supported_reasoning_efforts: three_level_efforts(),
+            },
+            ModelInfo {
+                id: "claude-sonnet-4.6".to_string(),
+                display_name: "Claude Sonnet 4.6".to_string(),
+                description: "Latest Anthropic Sonnet model".to_string(),
+                hidden: false,
+                is_default: false,
+                upgrade: None,
+                availability_nux: None,
+                upgrade_info: None,
+                input_modalities: vec!["text".to_string(), "image".to_string()],
+                supports_personality: false,
+                default_reasoning_effort: "medium".to_string(),
+                supported_reasoning_efforts: three_level_efforts(),
+            },
+            ModelInfo {
+                id: "claude-opus-4.6".to_string(),
+                display_name: "Claude Opus 4.6".to_string(),
+                description: "Most intelligent Anthropic model for complex tasks".to_string(),
+                hidden: false,
+                is_default: false,
+                upgrade: None,
+                availability_nux: None,
+                upgrade_info: None,
+                input_modalities: vec!["text".to_string(), "image".to_string()],
+                supports_personality: false,
+                default_reasoning_effort: "medium".to_string(),
+                supported_reasoning_efforts: three_level_efforts(),
+            },
+            ModelInfo {
+                id: "claude-haiku-4.5".to_string(),
+                display_name: "Claude Haiku 4.5".to_string(),
+                description: "Fast, lightweight Anthropic model".to_string(),
+                hidden: false,
+                is_default: false,
+                upgrade: Some("claude-sonnet-4.5".to_string()),
+                availability_nux: None,
+                upgrade_info: None,
+                input_modalities: vec!["text".to_string(), "image".to_string()],
+                supports_personality: false,
+                default_reasoning_effort: "low".to_string(),
                 supported_reasoning_efforts: vec![
                     ReasoningEffortOption {
                         reasoning_effort: "low".to_string(),
@@ -665,19 +726,30 @@ impl Engine for CopilotSidecarEngine {
                         reasoning_effort: "medium".to_string(),
                         description: "Balanced reasoning".to_string(),
                     },
-                    ReasoningEffortOption {
-                        reasoning_effort: "high".to_string(),
-                        description: "Deep, thorough reasoning".to_string(),
-                    },
                 ],
             },
+            // ── OpenAI ────────────────────────────────────────────────
             ModelInfo {
-                id: "gpt-4o-mini".to_string(),
-                display_name: "GPT-4o Mini".to_string(),
-                description: "Fast and cost-effective for lightweight tasks".to_string(),
+                id: "gpt-5.4".to_string(),
+                display_name: "GPT-5.4".to_string(),
+                description: "Latest OpenAI frontier model".to_string(),
                 hidden: false,
                 is_default: false,
-                upgrade: Some("gpt-4o".to_string()),
+                upgrade: None,
+                availability_nux: None,
+                upgrade_info: None,
+                input_modalities: vec!["text".to_string(), "image".to_string()],
+                supports_personality: false,
+                default_reasoning_effort: "medium".to_string(),
+                supported_reasoning_efforts: three_level_efforts(),
+            },
+            ModelInfo {
+                id: "gpt-5-mini".to_string(),
+                display_name: "GPT-5 Mini".to_string(),
+                description: "Fast OpenAI model — no premium requests consumed".to_string(),
+                hidden: false,
+                is_default: false,
+                upgrade: Some("gpt-5.4".to_string()),
                 availability_nux: None,
                 upgrade_info: None,
                 input_modalities: vec!["text".to_string(), "image".to_string()],
@@ -695,36 +767,24 @@ impl Engine for CopilotSidecarEngine {
                 ],
             },
             ModelInfo {
-                id: "o3-mini".to_string(),
-                display_name: "o3-mini".to_string(),
-                description: "Reasoning model for complex tasks".to_string(),
+                id: "gpt-4.1".to_string(),
+                display_name: "GPT-4.1".to_string(),
+                description: "Reliable OpenAI model — no premium requests consumed".to_string(),
                 hidden: false,
                 is_default: false,
-                upgrade: None,
+                upgrade: Some("gpt-5.4".to_string()),
                 availability_nux: None,
                 upgrade_info: None,
-                input_modalities: vec!["text".to_string()],
+                input_modalities: vec!["text".to_string(), "image".to_string()],
                 supports_personality: false,
                 default_reasoning_effort: "medium".to_string(),
-                supported_reasoning_efforts: vec![
-                    ReasoningEffortOption {
-                        reasoning_effort: "low".to_string(),
-                        description: "Quick reasoning".to_string(),
-                    },
-                    ReasoningEffortOption {
-                        reasoning_effort: "medium".to_string(),
-                        description: "Balanced reasoning".to_string(),
-                    },
-                    ReasoningEffortOption {
-                        reasoning_effort: "high".to_string(),
-                        description: "Deep, thorough reasoning".to_string(),
-                    },
-                ],
+                supported_reasoning_efforts: three_level_efforts(),
             },
+            // ── Google ────────────────────────────────────────────────
             ModelInfo {
-                id: "claude-3.5-sonnet".to_string(),
-                display_name: "Claude 3.5 Sonnet".to_string(),
-                description: "Anthropic model via GitHub Copilot".to_string(),
+                id: "gemini-2.5-pro".to_string(),
+                display_name: "Gemini 2.5 Pro".to_string(),
+                description: "Google's advanced reasoning model".to_string(),
                 hidden: false,
                 is_default: false,
                 upgrade: None,
@@ -733,20 +793,22 @@ impl Engine for CopilotSidecarEngine {
                 input_modalities: vec!["text".to_string(), "image".to_string()],
                 supports_personality: false,
                 default_reasoning_effort: "medium".to_string(),
-                supported_reasoning_efforts: vec![
-                    ReasoningEffortOption {
-                        reasoning_effort: "low".to_string(),
-                        description: "Quick, efficient responses".to_string(),
-                    },
-                    ReasoningEffortOption {
-                        reasoning_effort: "medium".to_string(),
-                        description: "Balanced reasoning".to_string(),
-                    },
-                    ReasoningEffortOption {
-                        reasoning_effort: "high".to_string(),
-                        description: "Deep, thorough reasoning".to_string(),
-                    },
-                ],
+                supported_reasoning_efforts: three_level_efforts(),
+            },
+            // ── xAI ──────────────────────────────────────────────────
+            ModelInfo {
+                id: "grok-code-fast-1".to_string(),
+                display_name: "Grok Code Fast 1".to_string(),
+                description: "Fast xAI coding model".to_string(),
+                hidden: false,
+                is_default: false,
+                upgrade: None,
+                availability_nux: None,
+                upgrade_info: None,
+                input_modalities: vec!["text".to_string()],
+                supports_personality: false,
+                default_reasoning_effort: "medium".to_string(),
+                supported_reasoning_efforts: three_level_efforts(),
             },
         ]
     }
