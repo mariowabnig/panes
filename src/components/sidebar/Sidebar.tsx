@@ -278,6 +278,8 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
     }
     setActiveThread(thread.id);
     await bindChatThread(thread.id);
+    // Restore terminal group associated with this thread (no-op if none)
+    useTerminalStore.getState().restoreThreadGroup(thread.workspaceId, thread.id);
   }
 
   async function onSelectProject(wsId: string) {
@@ -367,6 +369,7 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
     setArchiveThreadPrompt(null);
     const wasActive = thread.id === activeThreadId;
     await removeThread(thread.id);
+    useTerminalStore.getState().unbindThreadGroup(thread.workspaceId, thread.id);
     if (wasActive) {
       setActiveThread(null);
       await bindChatThread(null);
