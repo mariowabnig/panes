@@ -18,6 +18,19 @@
 - `globals.css` — `.sb-thread-rename`, `.sb-thread-rename-input` styles
 - `en/app.json`, `pt-BR/app.json` — Added `renameThread` i18n key
 
+### Thread user status
+
+- [x] `ThreadUserStatus` type added to `src/types.ts` — enum: `backlog | in_progress | in_review | done | canceled`
+- [x] `set_thread_user_status` Rust command validates and persists status into `engine_metadata.userStatus`
+- [x] `ipc.setThreadUserStatus` wires the IPC call from frontend
+- [x] `threadStore` — `setThreadUserStatus` (optimistic update + rollback), `setThreadUserStatusLocal`, `getThreadUserStatus` helper, `applyThreadUserStatus`
+- [x] `ThreadContextMenu.tsx` — right-click context menu on sidebar threads: Rename, Set status (flyout submenu), Archive
+- [x] `Sidebar.tsx` — renders `StatusIcon` next to thread title for non-backlog statuses; wires `onContextMenu`
+- [x] `globals.css` — `.sb-thread-user-status`, `.git-action-menu-item-check`
+
+**Status:** DONE
+**Date Completed:** 2026-04-04
+
 ## Git Push SOCKS Error — Root Cause
 
 **The Claude Agent SDK sandbox is the cause.** Not a network issue, not Panes code.

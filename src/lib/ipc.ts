@@ -225,6 +225,8 @@ export const ipc = {
     modelId?: string | null,
   ) =>
     invoke<void>("set_thread_reasoning_effort", { threadId, reasoningEffort, modelId: modelId ?? null }),
+  setThreadUserStatus: (threadId: string, userStatus: string | null) =>
+    invoke<void>("set_thread_user_status", { threadId, userStatus }),
   setThreadExecutionPolicy: (
     threadId: string,
     patch: {

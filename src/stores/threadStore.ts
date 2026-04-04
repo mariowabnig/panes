@@ -6,7 +6,7 @@ import {
   type NewThreadServiceTier,
 } from "../lib/newThreadRuntime";
 import { resolvePreferredOnboardingChatSelection } from "../lib/onboarding";
-import type { Thread, ThreadStatus } from "../types";
+import type { Thread, ThreadStatus, ThreadUserStatus } from "../types";
 import { useChatComposerStore } from "./chatComposerStore";
 import { useEngineStore } from "./engineStore";
 import { useOnboardingStore } from "./onboardingStore";
@@ -59,6 +59,8 @@ interface ThreadState {
   setThreadStatusLocal: (threadId: string, status: ThreadStatus) => void;
   setThreadReasoningEffortLocal: (threadId: string, reasoningEffort: string | null) => void;
   setThreadLastModelLocal: (threadId: string, modelId: string | null) => void;
+  setThreadUserStatusLocal: (threadId: string, userStatus: ThreadUserStatus | null) => void;
+  setThreadUserStatus: (threadId: string, userStatus: ThreadUserStatus | null) => Promise<void>;
 }
 
 const DEFAULT_ENGINE = NEW_THREAD_FALLBACK_RUNTIME.engineId;
@@ -96,6 +98,29 @@ function applyThreadReasoningEffort(
     ...thread,
     engineMetadata: Object.keys(metadata).length ? metadata : undefined,
   };
+}
+
+function applyThreadUserStatus(
+  thread: Thread,
+  userStatus: ThreadUserStatus | null
+): Thread {
+  const metadata = { ...(thread.engineMetadata ?? {}) };
+  if (userStatus) {
+    metadata.userStatus = userStatus;
+  } else {
+    delete metadata.userStatus;
+  }
+  return {
+    ...thread,
+    engineMetadata: Object.keys(metadata).length ? metadata : undefined,
+  };
+}
+
+export function getThreadUserStatus(thread: Thread): ThreadUserStatus | null {
+  const raw = thread.engineMetadata?.userStatus;
+  if (typeof raw !== "string") return null;
+  const allowed: ThreadUserStatus[] = ["backlog", "in_progress", "in_review", "done", "canceled"];
+  return allowed.includes(raw as ThreadUserStatus) ? (raw as ThreadUserStatus) : null;
 }
 
 function applyThreadLastModel(
@@ -685,4 +710,33 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
         threads: state.threads.map(updateThread),
       };
     }),
+  setThreadUserStatusLocal: (threadId, userStatus) =>
+    set((state) => {
+      const updateThread = (thread: Thread) =>
+        thread.id === threadId
+          ? applyThreadUserStatus(thread, userStatus)
+          : thread;
+
+      const threadsByWorkspace = Object.entries(state.threadsByWorkspace).reduce<
+        Record<string, Thread[]>
+      >((acc, [workspaceId, threads]) => {
+        acc[workspaceId] = threads.map(updateThread);
+        return acc;
+      }, {});
+
+      return {
+        threadsByWorkspace,
+        threads: state.threads.map(updateThread),
+      };
+    }),
+  setThreadUserStatus: async (threadId, userStatus) => {
+    const thread = get().threads.find((t) => t.id === threadId);
+    const previousStatus = thread ? getThreadUserStatus(thread) : null;
+    get().setThreadUserStatusLocal(threadId, userStatus);
+    try {
+      await ipc.setThreadUserStatus(threadId, userStatus);
+    } catch {
+      get().setThreadUserStatusLocal(threadId, previousStatus);
+    }
+  },
 }));

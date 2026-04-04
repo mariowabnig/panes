@@ -3047,6 +3047,20 @@ button, input, textarea, select {
   background: #34d399;
 }
 
+.sb-thread-user-status {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+}
+
+.git-action-menu-item-check {
+  display: inline-block;
+  width: 13px;
+  flex-shrink: 0;
+}
+
 /* New thread button (expanded) */
 .sb-new-thread-btn {
   width: 100%;

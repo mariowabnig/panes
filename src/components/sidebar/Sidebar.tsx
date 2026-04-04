@@ -48,11 +48,14 @@ import { handleDragMouseDown, handleDragDoubleClick } from "../../lib/windowDrag
 import { UpdateDialog } from "../onboarding/UpdateDialog";
 import { ConfirmDialog } from "../shared/ConfirmDialog";
 import { WorkspaceMoreMenu } from "../workspace/WorkspaceMoreMenu";
+import { ThreadContextMenu, StatusIcon } from "./ThreadContextMenu";
 import { normalizeSidebarCollapsedState } from "./sidebarCollapseState";
 import { useTerminalStore } from "../../stores/terminalStore";
 import { useHarnessStore } from "../../stores/harnessStore";
 import { writeCommandToNewSession } from "../../lib/ipc";
+import { getThreadUserStatus } from "../../stores/threadStore";
 import type { Thread, Workspace, WorkspaceStartupWorktreeConfig } from "../../types";
+import type { ThreadUserStatus } from "../../types";
 
 interface ProjectGroup {
   workspace: Workspace;
@@ -104,6 +107,7 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
     createThread,
     renameThread,
     refreshArchivedThreads,
+    setThreadUserStatus,
   } = useThreadStore();
   const openOnboarding = useOnboardingStore((state) => state.openOnboarding);
   const sidebarPinned = useUiStore((state) => state.sidebarPinned);
@@ -175,6 +179,11 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
   const [renamingThreadId, setRenamingThreadId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const [threadContextMenu, setThreadContextMenu] = useState<{
+    thread: Thread;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [settingsMenuPos, setSettingsMenuPos] = useState({ top: 0, left: 0 });
@@ -712,6 +721,11 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
                                 e.stopPropagation();
                                 startRenameThread(thread);
                               }}
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setThreadContextMenu({ thread, x: e.clientX, y: e.clientY });
+                              }}
                             >
                               {(() => {
                                 if (thread.status === "streaming" || thread.status === "awaiting_approval") {
@@ -724,6 +738,14 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
                                   thread.lastActivityAt > sessionStartRef.current
                                 ) {
                                   return <span className="sb-thread-status-done" />;
+                                }
+                                const userStatus = getThreadUserStatus(thread);
+                                if (userStatus && userStatus !== "backlog") {
+                                  return (
+                                    <span className="sb-thread-user-status">
+                                      <StatusIcon status={userStatus} size={12} />
+                                    </span>
+                                  );
                                 }
                                 return null;
                               })()}
@@ -1181,6 +1203,26 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
           onCancel={() => setArchiveThreadPrompt(null)}
         />,
         document.body,
+      )}
+
+      {threadContextMenu && (
+        <ThreadContextMenu
+          thread={threadContextMenu.thread}
+          position={{ x: threadContextMenu.x, y: threadContextMenu.y }}
+          onClose={() => setThreadContextMenu(null)}
+          onRename={() => {
+            startRenameThread(threadContextMenu.thread);
+            setThreadContextMenu(null);
+          }}
+          onArchive={() => {
+            setArchiveThreadPrompt({ thread: threadContextMenu.thread });
+            setThreadContextMenu(null);
+          }}
+          onSetStatus={(status) => {
+            void setThreadUserStatus(threadContextMenu.thread.id, status);
+            setThreadContextMenu(null);
+          }}
+        />
       )}
 
       {error && (
