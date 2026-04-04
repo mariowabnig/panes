@@ -43,6 +43,8 @@
     "codexWarning": "Only image and text attachments are supported for Codex turns.",
     "claudeTitle": "Attach files (text, SVG, and supported images)",
     "claudeWarning": "Only text files, including SVG, and PNG, JPEG, GIF, or WEBP images are supported for Claude turns.",
+    "copilotTitle": "Attach files (text and supported images)",
+    "copilotWarning": "Only text files and PNG, JPEG, GIF, or WEBP images are supported for Copilot turns.",
     "remove": "Remove attachment",
     "filters": {
       "supportedFiles": "Supported files",
@@ -272,10 +274,14 @@
     "enabledDescription": "Allow network access for this thread.",
     "networkRestrictedDescription": "Block outbound network access for this thread.",
     "claudeSandboxNotice": "Claude supports only read-only and workspace-write sandbox modes.",
+    "copilotSandboxNotice": "Copilot supports only read-only and workspace-write sandbox modes.",
     "fullAccessNotice": "Full access always enables network access.",
     "claudeRestrictedDescription": "Most actions require stricter approval handling.",
     "claudeStandardDescription": "Balanced permissions for day-to-day work.",
     "claudeTrustedDescription": "Broad permissions with less interruption.",
+    "copilotRestrictedDescription": "Most actions require stricter approval handling.",
+    "copilotStandardDescription": "Balanced permissions for day-to-day work.",
+    "copilotTrustedDescription": "Broad permissions with less interruption.",
     "permissionPolicyFallback": "Permission policy"
   },
   "panel": {

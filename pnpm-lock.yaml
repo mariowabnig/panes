@@ -184,6 +184,12 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  src-tauri/src/sidecars/copilot_agent:
+    devDependencies:
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
 packages:
 
   '@anthropic-ai/claude-agent-sdk@0.2.69':

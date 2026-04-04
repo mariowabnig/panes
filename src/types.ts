@@ -51,7 +51,7 @@ export interface HelperStatus {
   message?: string | null;
 }
 
-export type TerminalNotificationIntegrationId = "claude" | "codex";
+export type TerminalNotificationIntegrationId = "claude" | "codex" | "copilot";
 
 export interface TerminalNotificationIntegrationStatus {
   configured: boolean;
@@ -68,6 +68,7 @@ export interface TerminalNotificationSettings {
   notificationSound: string | null;
   claude: TerminalNotificationIntegrationStatus;
   codex: TerminalNotificationIntegrationStatus;
+  copilot: TerminalNotificationIntegrationStatus;
 }
 
 export interface Repo {
@@ -995,7 +996,7 @@ export interface TerminalGroup {
 // ── Setup / Onboarding ──────────────────────────────────────────────
 
 export type OnboardingWorkflowPreference = "cli" | "chat";
-export type OnboardingChatEngineId = "codex" | "claude";
+export type OnboardingChatEngineId = "codex" | "claude" | "copilot";
 export type OnboardingStep =
   | "greeting"
   | "workflow"

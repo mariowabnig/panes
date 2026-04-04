@@ -19,6 +19,7 @@ Prerequisites:
 - pnpm 9+
 - Tauri v2 host prerequisites
 - `codex` on `PATH` if you want to exercise the Codex engine locally
+- GitHub Copilot CLI (optional) for exercising the Copilot engine locally
 
 Install and run:
 

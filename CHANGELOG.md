@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+* **engines:** add GitHub Copilot as a third chat engine alongside Codex and Claude
+
 ## [](https://github.com/wygoralves/panes/compare/v0.51.2...vnull) (2026-04-01)
 
 ### Bug Fixes

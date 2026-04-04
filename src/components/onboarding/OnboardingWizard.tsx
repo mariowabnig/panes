@@ -70,6 +70,7 @@ const CHAT_ENGINE_OPTIONS: Array<{
 }> = [
   { id: "codex", descriptionKey: "chatEngines.options.codex.description" },
   { id: "claude", descriptionKey: "chatEngines.options.claude.description" },
+  { id: "copilot", descriptionKey: "chatEngines.options.copilot.description" },
 ];
 
 const STEP_TITLES: Record<

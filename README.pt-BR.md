@@ -43,6 +43,7 @@ O Panes não é uma IDE completa, mas inclui um editor multiaba embutido para re
 - Chat em streaming com blocos estruturados para texto, thinking, actions, diffs, approvals, attachments e atualizações de uso
 - Integração de chat com Codex via `codex app-server`
 - Integração de chat com Claude via sidecar do Claude Agent SDK
+- Integração de chat com Copilot via sidecar do GitHub Copilot
 - Plan mode, attachments, controles de reasoning effort, overrides de approval/network por thread e overrides de sandbox mode específicos do Codex
 - Busca global de mensagens com FTS e navegação por teclado
 - Carregamento em janela e hidratação lazy para threads longas e outputs de action
@@ -61,7 +62,7 @@ O Panes não é uma IDE completa, mas inclui um editor multiaba embutido para re
 - Terminal PTY nativo com xterm.js + WebGL
 - Grupos de terminal, split panes, resize arrastável e broadcast mode
 - Replay/resume de sessão e diagnósticos de renderer
-- Fluxos de detecção, instalação e abertura de harnesses para Codex CLI, Claude Code, Gemini CLI, Kiro, OpenCode, Kilo Code e Factory Droid
+- Fluxos de detecção, instalação e abertura de harnesses para Codex CLI, Claude Code, GitHub Copilot, Gemini CLI, Kiro, OpenCode, Kilo Code e Factory Droid
 - Multi-launch que pode abrir uma sessão por harness, opcionalmente com uma git worktree por sessão
 
 ### Editor e UX Desktop
@@ -83,6 +84,7 @@ O Panes não é uma IDE completa, mas inclui um editor multiaba embutido para re
 | Node.js | 20+ |
 | pnpm | 9+ |
 | Codex CLI | Obrigatório para a chat engine do Codex; o setup pode instalá-lo via npm |
+| GitHub Copilot | Opcional; usa sua conta do GitHub para autenticação |
 | Pré-requisitos do Tauri v2 | [Ver docs do Tauri](https://v2.tauri.app/start/prerequisites/) |
 
 ### Instalar no macOS
@@ -198,7 +200,7 @@ A copy visível para o usuário no frontend é localizada com `i18next`/`react-i
 
 O Panes usa um frontend React + Zustand rodando dentro de um shell Tauri, com um backend Rust responsável por persistência, orquestração de engines, operações de git, gerenciamento de terminal e acesso seguro ao filesystem.
 
-Atualmente o app expõe Codex e Claude como chat engines. O Codex se conecta a `codex app-server`; o Claude é ligado por meio do sidecar runtime incluído.
+Atualmente o app expõe Codex, Claude e Copilot como chat engines. O Codex se conecta a `codex app-server`; o Claude é ligado por meio do sidecar runtime incluído; o Copilot é ligado por meio de um sidecar dedicado.
 
 ### Stack
 

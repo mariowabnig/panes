@@ -43,6 +43,8 @@
     "codexWarning": "Apenas anexos de imagem e texto são suportados em turns do Codex.",
     "claudeTitle": "Anexar arquivos (texto, SVG e imagens suportadas)",
     "claudeWarning": "Apenas arquivos de texto, incluindo SVG, e imagens PNG, JPEG, GIF ou WEBP são suportados em turns do Claude.",
+    "copilotTitle": "Anexar arquivos (texto e imagens suportadas)",
+    "copilotWarning": "Apenas arquivos de texto e imagens PNG, JPEG, GIF ou WEBP são suportados em turns do Copilot.",
     "remove": "Remover anexo",
     "filters": {
       "supportedFiles": "Arquivos compatíveis",
@@ -272,10 +274,14 @@
     "enabledDescription": "Permite acesso à rede para esta thread.",
     "networkRestrictedDescription": "Bloqueia o acesso de rede de saída para esta thread.",
     "claudeSandboxNotice": "Claude suporta apenas os modos de sandbox somente leitura e escrita no workspace.",
+    "copilotSandboxNotice": "Copilot suporta apenas os modos de sandbox somente leitura e escrita no workspace.",
     "fullAccessNotice": "Acesso total sempre habilita a rede.",
     "claudeRestrictedDescription": "A maioria das ações exige aprovações mais rigorosas.",
     "claudeStandardDescription": "Permissões equilibradas para o trabalho do dia a dia.",
     "claudeTrustedDescription": "Permissões amplas com menos interrupções.",
+    "copilotRestrictedDescription": "A maioria das ações exige aprovações mais rigorosas.",
+    "copilotStandardDescription": "Permissões equilibradas para o trabalho do dia a dia.",
+    "copilotTrustedDescription": "Permissões amplas com menos interrupções.",
     "permissionPolicyFallback": "Política de permissão"
   },
   "panel": {

@@ -78,12 +78,13 @@ export function TerminalNotificationSettingsModal() {
 
   const claude = settings?.claude ?? { configured: false, configExists: false, conflict: false };
   const codex = settings?.codex ?? { configured: false, configExists: false, conflict: false };
+  const copilot = settings?.copilot ?? { configured: false, configExists: false, conflict: false };
   const integrationBusy = loading || installingIntegration !== null;
   const terminalBusy = loading || updatingTerminalEnabled || installingIntegration !== null;
   const terminalToggleDisabled = terminalBusy;
 
-  const allConfigured = claude.configured && codex.configured;
-  const anyNeedsSetup = needsAction(claude) || needsAction(codex);
+  const allConfigured = claude.configured && codex.configured && copilot.configured;
+  const anyNeedsSetup = needsAction(claude) || needsAction(codex) || needsAction(copilot);
 
   // Show expanded integrations when: any needs setup, or user clicked manage
   const showExpanded = anyNeedsSetup || manageOpen;
@@ -107,7 +108,7 @@ export function TerminalNotificationSettingsModal() {
       <div className="ntf-setup-card" data-needs-action={String(actionNeeded)} key={id}>
         <div className="ntf-setup-left">
           <div className="ntf-setup-name">
-            {getHarnessIcon(id === "claude" ? "claude-code" : "codex", 13)}
+            {getHarnessIcon(id === "claude" ? "claude-code" : id, 13)}
             {t(`notificationSettings.integrations.${id}.title`)}
           </div>
           <div className="ntf-setup-desc">
@@ -261,6 +262,10 @@ export function TerminalNotificationSettingsModal() {
                 <CheckCircle2 size={10} />
                 {t("notificationSettings.integrations.codex.title")}
               </div>
+              <div className="ntf-hook-item">
+                <CheckCircle2 size={10} />
+                {t("notificationSettings.integrations.copilot.title")}
+              </div>
               <button
                 type="button"
                 className="ntf-hooks-manage"
@@ -277,6 +282,7 @@ export function TerminalNotificationSettingsModal() {
               <div className="ntf-setup-area">
                 {renderIntegrationRow("claude", claude)}
                 {renderIntegrationRow("codex", codex)}
+                {renderIntegrationRow("copilot", copilot)}
                 <div className="ntf-footnote">
                   {t("notificationSettings.workflowShort")}
                 </div>

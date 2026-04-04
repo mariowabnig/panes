@@ -12,6 +12,7 @@ use crate::{
     engines::{
         claude_sidecar::ClaudeSidecarEngine,
         codex::{CodexEngine, CodexForkedThread, CodexReviewStarted},
+        copilot_sidecar::CopilotSidecarEngine,
     },
     models::{
         CodexAppDto, CodexSkillDto, EngineCapabilitiesDto, EngineHealthDto, EngineInfoDto,
@@ -26,6 +27,7 @@ pub mod codex;
 pub mod codex_event_mapper;
 pub mod codex_protocol;
 pub mod codex_transport;
+pub mod copilot_sidecar;
 pub mod events;
 
 pub use codex::CodexRuntimeEvent;
@@ -114,9 +116,16 @@ const CLAUDE_CAPABILITIES: EngineCapabilities = EngineCapabilities {
     approval_decisions: &["accept", "decline", "accept_for_session"],
 };
 
+const COPILOT_CAPABILITIES: EngineCapabilities = EngineCapabilities {
+    permission_modes: &["restricted", "standard", "trusted"],
+    sandbox_modes: &["read-only", "workspace-write"],
+    approval_decisions: &["accept", "decline", "accept_for_session"],
+};
+
 pub fn capabilities_for_engine(engine_id: &str) -> EngineCapabilities {
     match engine_id {
         "claude" => CLAUDE_CAPABILITIES,
+        "copilot" => COPILOT_CAPABILITIES,
         _ => CODEX_CAPABILITIES,
     }
 }
@@ -142,6 +151,8 @@ pub fn validate_engine_sandbox_mode(
     let supported = capabilities_for_engine(engine_id).sandbox_modes.join(", ");
     let engine_name = if engine_id.eq_ignore_ascii_case("claude") {
         "Claude"
+    } else if engine_id.eq_ignore_ascii_case("copilot") {
+        "Copilot"
     } else {
         "engine"
     };
@@ -155,7 +166,7 @@ pub fn normalize_approval_response_for_engine(
     engine_id: &str,
     response: Value,
 ) -> Result<Value, String> {
-    if engine_id != "claude" {
+    if engine_id != "claude" && engine_id != "copilot" {
         return Ok(response);
     }
 
@@ -347,6 +358,7 @@ pub trait Engine: Send + Sync {
 pub struct EngineManager {
     codex: Arc<CodexEngine>,
     claude: Arc<ClaudeSidecarEngine>,
+    copilot: Arc<CopilotSidecarEngine>,
 }
 
 impl EngineManager {
@@ -354,11 +366,13 @@ impl EngineManager {
         Self {
             codex: Arc::new(CodexEngine::default()),
             claude: Arc::new(ClaudeSidecarEngine::default()),
+            copilot: Arc::new(CopilotSidecarEngine::default()),
         }
     }
 
     pub fn set_resource_dir(&self, resource_dir: Option<PathBuf>) {
-        self.claude.set_resource_dir(resource_dir);
+        self.claude.set_resource_dir(resource_dir.clone());
+        self.copilot.set_resource_dir(resource_dir);
     }
 
     pub async fn list_engines(&self) -> anyhow::Result<Vec<EngineInfoDto>> {
@@ -374,6 +388,7 @@ impl EngineManager {
             }
         };
         let claude_models = self.claude.models();
+        let copilot_models = self.copilot.models();
 
         Ok(vec![
             EngineInfoDto {
@@ -387,6 +402,12 @@ impl EngineManager {
                 name: self.claude.name().to_string(),
                 models: claude_models.into_iter().map(map_model_info).collect(),
                 capabilities: map_engine_capabilities(capabilities_for_engine(self.claude.id())),
+            },
+            EngineInfoDto {
+                id: self.copilot.id().to_string(),
+                name: self.copilot.name().to_string(),
+                models: copilot_models.into_iter().map(map_model_info).collect(),
+                capabilities: map_engine_capabilities(capabilities_for_engine(self.copilot.id())),
             },
         ])
     }
@@ -419,6 +440,19 @@ impl EngineManager {
                     protocol_diagnostics: None,
                 })
             }
+            "copilot" => {
+                let report = self.copilot.health_report().await;
+                Ok(EngineHealthDto {
+                    id: "copilot".to_string(),
+                    available: report.available,
+                    version: report.version,
+                    details: Some(report.details),
+                    warnings: report.warnings,
+                    checks: report.checks,
+                    fixes: report.fixes,
+                    protocol_diagnostics: None,
+                })
+            }
             _ => anyhow::bail!("unknown engine: {engine_id}"),
         }
     }
@@ -427,6 +461,7 @@ impl EngineManager {
         match engine_id {
             "codex" => self.codex.prewarm().await,
             "claude" => self.claude.prewarm().await,
+            "copilot" => self.copilot.prewarm().await,
             _ => anyhow::bail!("unknown engine: {engine_id}"),
         }
     }
@@ -533,6 +568,11 @@ impl EngineManager {
                 .start_thread(scope, resume_id, effective_model_id, sandbox)
                 .await
                 .context("failed to start claude thread")?,
+            "copilot" => self
+                .copilot
+                .start_thread(scope, resume_id, effective_model_id, sandbox)
+                .await
+                .context("failed to start copilot thread")?,
             _ => anyhow::bail!("unsupported engine_id {}", thread.engine_id),
         };
 
@@ -558,6 +598,11 @@ impl EngineManager {
                 .send_message(engine_thread_id, input, event_tx, cancellation)
                 .await
                 .context("claude send_message failed"),
+            "copilot" => self
+                .copilot
+                .send_message(engine_thread_id, input, event_tx, cancellation)
+                .await
+                .context("copilot send_message failed"),
             _ => anyhow::bail!("unsupported engine_id {}", thread.engine_id),
         }
     }
@@ -579,6 +624,11 @@ impl EngineManager {
                 .steer_message(engine_thread_id, input)
                 .await
                 .context("claude steer_message failed"),
+            "copilot" => self
+                .copilot
+                .steer_message(engine_thread_id, input)
+                .await
+                .context("copilot steer_message failed"),
             _ => anyhow::bail!("unsupported engine_id {}", thread.engine_id),
         }
     }
@@ -601,6 +651,11 @@ impl EngineManager {
                     .respond_to_approval(approval_id, response, route)
                     .await
             }
+            "copilot" => {
+                self.copilot
+                    .respond_to_approval(approval_id, response, route)
+                    .await
+            }
             _ => anyhow::bail!("unsupported engine_id {}", thread.engine_id),
         }
     }
@@ -610,6 +665,7 @@ impl EngineManager {
         match thread.engine_id.as_str() {
             "codex" => self.codex.interrupt(engine_thread_id).await,
             "claude" => self.claude.interrupt(engine_thread_id).await,
+            "copilot" => self.copilot.interrupt(engine_thread_id).await,
             _ => anyhow::bail!("unsupported engine_id {}", thread.engine_id),
         }
     }
@@ -622,6 +678,7 @@ impl EngineManager {
         match thread.engine_id.as_str() {
             "codex" => self.codex.archive_thread(engine_thread_id).await,
             "claude" => self.claude.archive_thread(engine_thread_id).await,
+            "copilot" => self.copilot.archive_thread(engine_thread_id).await,
             _ => anyhow::bail!("unsupported engine_id {}", thread.engine_id),
         }
     }
@@ -634,6 +691,7 @@ impl EngineManager {
         match thread.engine_id.as_str() {
             "codex" => self.codex.unarchive_thread(engine_thread_id).await,
             "claude" => self.claude.unarchive_thread(engine_thread_id).await,
+            "copilot" => self.copilot.unarchive_thread(engine_thread_id).await,
             _ => anyhow::bail!("unsupported engine_id {}", thread.engine_id),
         }
     }
@@ -662,6 +720,7 @@ impl EngineManager {
         match thread.engine_id.as_str() {
             "codex" => self.codex.set_thread_name(engine_thread_id, name).await,
             "claude" => Ok(()),
+            "copilot" => Ok(()),
             _ => anyhow::bail!("unsupported engine_id {}", thread.engine_id),
         }
     }
@@ -685,6 +744,7 @@ impl EngineManager {
                 .await
                 .map(Some),
             "claude" => Ok(None),
+            "copilot" => Ok(None),
             _ => anyhow::bail!("unsupported engine_id {}", thread.engine_id),
         }
     }

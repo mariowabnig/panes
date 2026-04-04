@@ -76,6 +76,15 @@ function FactoryLogo({ size = 18 }: { size?: number }) {
   );
 }
 
+/* GitHub Copilot — octocat sparkle mark */
+function CopilotLogo({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M9.107 18.959A1.21 1.21 0 0 1 8 20.168a1.21 1.21 0 0 1-1.107-1.21 1.21 1.21 0 0 1 1.107-1.21A1.21 1.21 0 0 1 9.107 18.96ZM17.107 18.959A1.21 1.21 0 0 1 16 20.168a1.21 1.21 0 0 1-1.107-1.21 1.21 1.21 0 0 1 1.107-1.21 1.21 1.21 0 0 1 1.107 1.21ZM23.31 11.2a4.44 4.44 0 0 0-2.19-2.65c.24-.89.24-1.83 0-2.73A4.9 4.9 0 0 0 16.49 2.5a4.65 4.65 0 0 0-2.56.76 8.58 8.58 0 0 0-3.88 0A4.67 4.67 0 0 0 7.49 2.5 4.88 4.88 0 0 0 2.87 5.82c-.24.9-.24 1.84 0 2.73A4.46 4.46 0 0 0 .69 11.2a4.84 4.84 0 0 0 .59 5.17 7.15 7.15 0 0 0 2.5 2.13 5.2 5.2 0 0 0 1.7.7 1.9 1.9 0 0 0 1.53-.37c.4-.33.62-.82.59-1.33v-2.42a.58.58 0 0 0-.27-.46 3.2 3.2 0 0 1-1.36-2.53 3.2 3.2 0 0 1 .72-2.17 1 1 0 0 0 .06-1.18 2.74 2.74 0 0 1-.18-2.3 2.63 2.63 0 0 1 1.94.83 1 1 0 0 0 .95.27 6.42 6.42 0 0 1 3.17 0 .99.99 0 0 0 .95-.27 2.63 2.63 0 0 1 1.94-.83 2.74 2.74 0 0 1-.18 2.3 1 1 0 0 0 .06 1.18 3.2 3.2 0 0 1 .72 2.17c-.04 1-.52 1.93-1.33 2.53a.6.6 0 0 0-.27.46v2.43a1.88 1.88 0 0 0 2.12 1.7 5.2 5.2 0 0 0 1.7-.7 7.1 7.1 0 0 0 2.5-2.13 4.83 4.83 0 0 0 .6-5.18Z" />
+    </svg>
+  );
+}
+
 /* ─── Icon resolver ─── */
 export function getHarnessIcon(id: string, size = 16): ReactNode {
   const style = { color: "var(--text-2)", display: "inline-flex", flexShrink: 0 } as const;
@@ -96,6 +105,8 @@ export function getHarnessIcon(id: string, size = 16): ReactNode {
       return <span style={style}><KiloCodeLogo size={size} /></span>;
     case "factory-droid":
       return <span style={style}><FactoryLogo size={Math.round(size * 1.2)} /></span>;
+    case "copilot":
+      return <span style={style}><CopilotLogo size={size} /></span>;
     default:
       return <span style={style}><CodexLogo size={size} /></span>;
   }

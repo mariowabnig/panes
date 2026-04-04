@@ -27,6 +27,8 @@ function formatModelName(name: string): string {
     gpt: "GPT",
     codex: "Codex",
     claude: "Claude",
+    copilot: "Copilot",
+    github: "GitHub",
     opus: "Opus",
     sonnet: "Sonnet",
     haiku: "Haiku",

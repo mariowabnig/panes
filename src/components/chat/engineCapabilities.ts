@@ -12,8 +12,16 @@ const CLAUDE_CAPABILITIES: EngineCapabilities = {
   approvalDecisions: ["accept", "decline", "accept_for_session"],
 };
 
+const COPILOT_CAPABILITIES: EngineCapabilities = {
+  permissionModes: ["restricted", "standard", "trusted"],
+  sandboxModes: ["read-only", "workspace-write"],
+  approvalDecisions: ["accept", "decline", "accept_for_session"],
+};
+
 function fallbackEngineCapabilities(engineId?: string | null): EngineCapabilities {
-  return engineId === "claude" ? CLAUDE_CAPABILITIES : CODEX_CAPABILITIES;
+  if (engineId === "claude") return CLAUDE_CAPABILITIES;
+  if (engineId === "copilot") return COPILOT_CAPABILITIES;
+  return CODEX_CAPABILITIES;
 }
 
 export function resolveEngineCapabilities(
