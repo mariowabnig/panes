@@ -152,6 +152,8 @@ export type ThreadStatus =
   | "error"
   | "completed";
 
+export type ThreadUserStatus = "backlog" | "in_progress" | "in_review" | "done" | "canceled";
+
 export interface Thread {
   id: string;
   workspaceId: string;
