@@ -9,6 +9,7 @@ export const HARNESS_INSTALL_COMMANDS: Readonly<Record<string, string>> = {
   "kilo-code": "npm install -g @kilocode/cli",
   "factory-droid": "curl -fsSL https://app.factory.ai/cli | sh",
   "github-copilot": "gh extension install github/copilot-cli",
+
 };
 
 export type HarnessTileAction = "launch" | "install" | "manual";

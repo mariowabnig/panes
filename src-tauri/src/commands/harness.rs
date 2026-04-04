@@ -20,6 +20,9 @@ struct HarnessDef {
     name: &'static str,
     description: &'static str,
     command: &'static str,
+    /// Extra args appended after `command` when launching in a terminal.
+    /// For most harnesses this is empty; for `gh copilot` it is `&["copilot"]`.
+    launch_args: &'static [&'static str],
     version_args: &'static [&'static str],
     install_command: Option<&'static str>,
     install_args: &'static [&'static str],
@@ -36,6 +39,7 @@ const HARNESSES: &[HarnessDef] = &[
         name: "Codex CLI",
         description: "Natively integrated — powers the Panes chat engine",
         command: "codex",
+        launch_args: &[],
         version_args: &["--version"],
         install_command: Some("npm"),
         install_args: &["install", "-g", "@openai/codex"],
@@ -48,6 +52,7 @@ const HARNESSES: &[HarnessDef] = &[
         name: "Claude Code",
         description: "Anthropic's agentic coding tool",
         command: "claude",
+        launch_args: &[],
         version_args: &["--version"],
         install_command: Some("npm"),
         install_args: &["install", "-g", "@anthropic-ai/claude-code"],
@@ -60,10 +65,11 @@ const HARNESSES: &[HarnessDef] = &[
         name: "GitHub Copilot",
         description: "Natively integrated — powers the Panes Copilot chat engine",
         command: "gh",
+        launch_args: &["copilot"],
         version_args: &["copilot", "--version"],
-        install_command: None,
-        install_args: &[],
-        install_script: Some("gh extension install github/copilot-cli"),
+        install_command: Some("gh"),
+        install_args: &["extension", "install", "github/copilot-cli"],
+        install_script: None,
         website: "https://docs.github.com/copilot",
         native: true,
     },
@@ -72,6 +78,7 @@ const HARNESSES: &[HarnessDef] = &[
         name: "Gemini CLI",
         description: "Google's AI-powered command-line coding agent",
         command: "gemini",
+        launch_args: &[],
         version_args: &["--version"],
         install_command: Some("npm"),
         install_args: &["install", "-g", "@google/gemini-cli"],
@@ -84,6 +91,7 @@ const HARNESSES: &[HarnessDef] = &[
         name: "Kiro",
         description: "AI-powered CLI coding agent by AWS",
         command: "kiro-cli",
+        launch_args: &[],
         version_args: &["--version"],
         install_command: None,
         install_args: &[],
@@ -96,6 +104,7 @@ const HARNESSES: &[HarnessDef] = &[
         name: "OpenCode",
         description: "Open-source AI coding assistant",
         command: "opencode",
+        launch_args: &[],
         version_args: &["--version"],
         install_command: Some("npm"),
         install_args: &["install", "-g", "opencode-ai"],
@@ -108,6 +117,7 @@ const HARNESSES: &[HarnessDef] = &[
         name: "Kilo Code",
         description: "AI-powered code assistant",
         command: "kilo",
+        launch_args: &[],
         version_args: &["--version"],
         install_command: Some("npm"),
         install_args: &["install", "-g", "@kilocode/cli"],
@@ -120,6 +130,7 @@ const HARNESSES: &[HarnessDef] = &[
         name: "Factory Droid",
         description: "Autonomous coding agent by Factory",
         command: "droid",
+        launch_args: &[],
         version_args: &["--version"],
         install_command: None,
         install_args: &[],
@@ -213,8 +224,12 @@ pub async fn launch_harness(harness_id: String) -> Result<String, String> {
         .find(|h| h.id == harness_id)
         .ok_or_else(|| format!("unknown harness: {harness_id}"))?;
 
-    // Return the command name so the frontend can write it into a terminal session
-    Ok(def.command.to_string())
+    // Return the full command so the frontend can write it into a terminal session
+    if def.launch_args.is_empty() {
+        Ok(def.command.to_string())
+    } else {
+        Ok(format!("{} {}", def.command, def.launch_args.join(" ")))
+    }
 }
 
 // ---------------------------------------------------------------------------

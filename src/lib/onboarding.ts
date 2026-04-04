@@ -9,7 +9,7 @@ import type {
 export const CHAT_ENGINE_INSTALL_HARNESS_IDS: Readonly<Record<OnboardingChatEngineId, string>> = {
   codex: "codex",
   claude: "claude-code",
-  copilot: "copilot",
+  copilot: "github-copilot",
 };
 
 const CODEX_AUTH_ERROR_MARKERS = [
