@@ -606,6 +606,54 @@ pub async fn set_thread_reasoning_effort(
 }
 
 #[tauri::command]
+pub async fn set_thread_user_status(
+    state: State<'_, AppState>,
+    thread_id: String,
+    user_status: Option<String>,
+) -> Result<(), String> {
+    let db = state.db.clone();
+    let thread = run_db(db.clone(), {
+        let thread_id = thread_id.clone();
+        move |db| db::threads::get_thread(db, &thread_id)
+    })
+    .await?
+    .ok_or_else(|| format!("thread not found: {thread_id}"))?;
+
+    let normalized = user_status
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+
+    if let Some(value) = normalized {
+        let allowed = ["backlog", "in_progress", "in_review", "done", "canceled"];
+        if !allowed.contains(&value) {
+            return Err(format!("invalid user status: {value}"));
+        }
+    }
+
+    let mut metadata = thread.engine_metadata.unwrap_or_else(|| json!({}));
+    if !metadata.is_object() {
+        metadata = json!({});
+    }
+
+    if let Some(object) = metadata.as_object_mut() {
+        match normalized {
+            Some(value) => {
+                object.insert("userStatus".to_string(), json!(value));
+            }
+            None => {
+                object.remove("userStatus");
+            }
+        };
+    }
+
+    run_db(db, move |db| {
+        db::threads::update_engine_metadata(db, &thread_id, &metadata)
+    })
+    .await
+}
+
+#[tauri::command]
 pub async fn rename_thread(
     state: State<'_, AppState>,
     thread_id: String,

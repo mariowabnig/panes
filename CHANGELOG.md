@@ -4,6 +4,7 @@
 
 ### Features
 
+* **sidebar:** add thread user status — right-click any thread to set `backlog`, `in_progress`, `in_review`, `done`, or `canceled`; status icon shown next to thread title for non-backlog statuses; persisted in `engine_metadata.userStatus` via new `set_thread_user_status` Rust command
 * **engines:** add GitHub Copilot as a third chat engine alongside Codex and Claude
 * **harness:** add GitHub Copilot to harness detection, install, and launch flows
 * **copilot:** implement full sidecar protocol — typed NDJSON events, streaming chat, agentic tool use with approval flow, token caching, and cancel/approval_response routing
