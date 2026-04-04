@@ -284,6 +284,8 @@ pub fn run() {
             commands::threads::set_thread_user_status,
             commands::threads::set_thread_execution_policy,
             commands::threads::set_thread_codex_config,
+            commands::threads::reorder_threads,
+            commands::threads::toggle_thread_pin,
             commands::threads::archive_thread,
             commands::threads::restore_thread,
             commands::threads::sync_thread_from_engine,

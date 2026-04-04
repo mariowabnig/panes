@@ -36,7 +36,8 @@ pub fn get_thread(db: &Database, thread_id: &str) -> anyhow::Result<Option<Threa
     let conn = db.connect()?;
     conn.query_row(
     "SELECT id, workspace_id, repo_id, engine_id, model_id, engine_thread_id, engine_metadata_json,
-            COALESCE(title, ''), status, message_count, total_tokens, created_at, last_activity_at
+            COALESCE(title, ''), status, message_count, total_tokens, created_at, last_activity_at,
+            sort_order, pinned_at
      FROM threads WHERE id = ?1",
     params![thread_id],
     map_thread_row,
@@ -53,7 +54,8 @@ pub fn find_thread_by_engine_thread_id(
     let conn = db.connect()?;
     conn.query_row(
         "SELECT id, workspace_id, repo_id, engine_id, model_id, engine_thread_id, engine_metadata_json,
-                COALESCE(title, ''), status, message_count, total_tokens, created_at, last_activity_at
+                COALESCE(title, ''), status, message_count, total_tokens, created_at, last_activity_at,
+                sort_order, pinned_at
          FROM threads
          WHERE engine_id = ?1
            AND engine_thread_id = ?2
@@ -72,7 +74,8 @@ pub fn list_threads_for_workspace(
     let conn = db.connect()?;
     let mut stmt = conn.prepare(
     "SELECT id, workspace_id, repo_id, engine_id, model_id, engine_thread_id, engine_metadata_json,
-            COALESCE(title, ''), status, message_count, total_tokens, created_at, last_activity_at
+            COALESCE(title, ''), status, message_count, total_tokens, created_at, last_activity_at,
+            sort_order, pinned_at
      FROM threads
      WHERE workspace_id = ?1
        AND archived_at IS NULL
@@ -83,7 +86,7 @@ pub fn list_threads_for_workspace(
            WHERE messages.thread_id = threads.id
          )
        )
-     ORDER BY last_activity_at DESC",
+     ORDER BY pinned_at IS NULL ASC, CASE WHEN sort_order = 0 THEN 1 ELSE 0 END, sort_order ASC, pinned_at DESC, last_activity_at DESC",
   )?;
 
     let rows = stmt.query_map(params![workspace_id], map_thread_row)?;
@@ -101,7 +104,8 @@ pub fn list_archived_threads_for_workspace(
     let conn = db.connect()?;
     let mut stmt = conn.prepare(
     "SELECT id, workspace_id, repo_id, engine_id, model_id, engine_thread_id, engine_metadata_json,
-            COALESCE(title, ''), status, message_count, total_tokens, created_at, last_activity_at
+            COALESCE(title, ''), status, message_count, total_tokens, created_at, last_activity_at,
+            sort_order, pinned_at
      FROM threads
      WHERE workspace_id = ?1
        AND archived_at IS NOT NULL
@@ -191,7 +195,7 @@ pub fn restore_thread(db: &Database, thread_id: &str) -> anyhow::Result<ThreadDt
     let affected = conn
         .execute(
             "UPDATE threads
-       SET archived_at = NULL
+       SET archived_at = NULL, sort_order = 0
        WHERE id = ?1
          AND archived_at IS NOT NULL",
             params![thread_id],
@@ -412,6 +416,44 @@ fn derive_thread_status_for_recovery(
     Ok(status)
 }
 
+pub fn reorder_threads(db: &Database, thread_ids: &[String]) -> anyhow::Result<()> {
+    let mut conn = db.connect()?;
+    let tx = conn
+        .transaction()
+        .context("failed to start thread reorder transaction")?;
+    {
+        let mut stmt = tx
+            .prepare("UPDATE threads SET sort_order = ?1 WHERE id = ?2")
+            .context("failed to prepare thread reorder statement")?;
+        for (i, id) in thread_ids.iter().enumerate() {
+            stmt.execute(params![i as i64 + 1, id])
+                .context("failed to update thread sort_order")?;
+        }
+    }
+    tx.commit()
+        .context("failed to commit thread reorder transaction")?;
+    Ok(())
+}
+
+pub fn toggle_thread_pin(db: &Database, thread_id: &str, pinned: bool) -> anyhow::Result<ThreadDto> {
+    let conn = db.connect()?;
+    if pinned {
+        conn.execute(
+            "UPDATE threads SET pinned_at = datetime('now') WHERE id = ?1",
+            params![thread_id],
+        )
+        .context("failed to pin thread")?;
+    } else {
+        conn.execute(
+            "UPDATE threads SET pinned_at = NULL WHERE id = ?1",
+            params![thread_id],
+        )
+        .context("failed to unpin thread")?;
+    }
+    drop(conn);
+    get_thread(db, thread_id)?.context("thread not found after pin toggle")
+}
+
 fn map_thread_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ThreadDto> {
     let metadata_raw: Option<String> = row.get(6)?;
     let metadata = metadata_raw.and_then(|raw| serde_json::from_str(&raw).ok());
@@ -430,6 +472,8 @@ fn map_thread_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ThreadDto> {
         total_tokens: row.get(10)?,
         created_at: row.get(11)?,
         last_activity_at: row.get(12)?,
+        sort_order: row.get(13)?,
+        pinned_at: row.get(14)?,
     })
 }
 

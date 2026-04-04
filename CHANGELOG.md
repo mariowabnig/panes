@@ -4,6 +4,8 @@
 
 ### Features
 
+* **sidebar:** pin threads — right-click any thread to pin/unpin; pinned threads float above unpinned in the sidebar; `pinned_at` timestamp persisted via new `toggle_thread_pin` Rust command
+* **sidebar:** drag-and-drop thread reordering — drag threads within a workspace to set a custom order; order persisted via `reorder_threads` with optimistic updates and rollback on failure
 * **sidebar:** add thread user status — right-click any thread to set `backlog`, `in_progress`, `in_review`, `done`, or `canceled`; status icon shown next to thread title for non-backlog statuses; persisted in `engine_metadata.userStatus` via new `set_thread_user_status` Rust command
 * **engines:** add GitHub Copilot as a third chat engine alongside Codex and Claude
 * **harness:** add GitHub Copilot to harness detection, install, and launch flows

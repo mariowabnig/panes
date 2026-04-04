@@ -62,6 +62,8 @@ interface ThreadState {
   setThreadHarnessLocal: (threadId: string, harnessId: string | null) => void;
   setThreadUserStatusLocal: (threadId: string, userStatus: ThreadUserStatus | null) => void;
   setThreadUserStatus: (threadId: string, userStatus: ThreadUserStatus | null) => Promise<void>;
+  reorderThreads: (workspaceId: string, threadIds: string[]) => Promise<void>;
+  toggleThreadPin: (threadId: string, pinned: boolean) => Promise<void>;
 }
 
 const DEFAULT_ENGINE = NEW_THREAD_FALLBACK_RUNTIME.engineId;
@@ -81,7 +83,23 @@ function mergeWorkspaceThreads(
 function flattenThreadsByWorkspace(threadsByWorkspace: Record<string, Thread[]>): Thread[] {
   return Object.values(threadsByWorkspace)
     .flat()
-    .sort((a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime());
+    .sort((a, b) => {
+      // Pinned threads float above unpinned
+      const aPinned = a.pinnedAt != null;
+      const bPinned = b.pinnedAt != null;
+      if (aPinned !== bPinned) return aPinned ? -1 : 1;
+      // Within each group (pinned or unpinned), respect explicit sort_order
+      if (a.sortOrder !== 0 || b.sortOrder !== 0) {
+        if (a.sortOrder === 0) return 1;
+        if (b.sortOrder === 0) return -1;
+        return a.sortOrder - b.sortOrder;
+      }
+      // Fallback: pinned → most recently pinned first, unpinned → most recently active first
+      if (aPinned) {
+        return b.pinnedAt! < a.pinnedAt! ? -1 : b.pinnedAt! > a.pinnedAt! ? 1 : 0;
+      }
+      return b.lastActivityAt < a.lastActivityAt ? -1 : b.lastActivityAt > a.lastActivityAt ? 1 : 0;
+    });
 }
 
 function applyThreadReasoningEffort(
@@ -781,6 +799,50 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
       await ipc.setThreadUserStatus(threadId, userStatus);
     } catch {
       get().setThreadUserStatusLocal(threadId, previousStatus);
+    }
+  },
+  reorderThreads: async (workspaceId, threadIds) => {
+    set((state) => {
+      const workspaceThreads = state.threadsByWorkspace[workspaceId] ?? [];
+      const threadMap = new Map(workspaceThreads.map((t) => [t.id, t]));
+      const reordered = threadIds
+        .map((id, i) => {
+          const t = threadMap.get(id);
+          return t ? { ...t, sortOrder: i + 1 } : null;
+        })
+        .filter(Boolean) as Thread[];
+      const reorderedIds = new Set(threadIds);
+      const remaining = workspaceThreads.filter((t) => !reorderedIds.has(t.id));
+      const nextWorkspaceThreads = [...reordered, ...remaining];
+      const threadsByWorkspace = mergeWorkspaceThreads(
+        state.threadsByWorkspace,
+        workspaceId,
+        nextWorkspaceThreads,
+      );
+      return {
+        threadsByWorkspace,
+        threads: flattenThreadsByWorkspace(threadsByWorkspace),
+      };
+    });
+    try {
+      await ipc.reorderThreads(threadIds);
+    } catch {
+      await get().refreshThreads(workspaceId);
+    }
+  },
+  toggleThreadPin: async (threadId, pinned) => {
+    const thread = get().threads.find((t) => t.id === threadId);
+    if (!thread) return;
+    const optimisticThread = {
+      ...thread,
+      pinnedAt: pinned ? new Date().toISOString() : null,
+    };
+    get().applyThreadUpdateLocal(optimisticThread);
+    try {
+      const updated = await ipc.toggleThreadPin(threadId, pinned);
+      get().applyThreadUpdateLocal(updated);
+    } catch {
+      get().applyThreadUpdateLocal(thread);
     }
   },
 }));

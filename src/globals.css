@@ -2856,8 +2856,13 @@ button, input, textarea, select {
   border-radius: 0 1px 1px 0;
 }
 
-.sb-project-drag-over {
+.sb-project-drag-over,
+.sb-thread-drag-over {
   border-top: 2px solid var(--accent);
+}
+
+.sb-thread-pin-indicator {
+  margin-right: 2px;
 }
 
 .sb-project-name {

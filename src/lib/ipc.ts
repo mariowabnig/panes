@@ -229,6 +229,8 @@ export const ipc = {
     invoke<void>("set_thread_harness", { threadId, harnessId }),
   setThreadUserStatus: (threadId: string, userStatus: string | null) =>
     invoke<void>("set_thread_user_status", { threadId, userStatus }),
+  reorderThreads: (threadIds: string[]) => invoke<void>("reorder_threads", { threadIds }),
+  toggleThreadPin: (threadId: string, pinned: boolean) => invoke<Thread>("toggle_thread_pin", { threadId, pinned }),
   setThreadExecutionPolicy: (
     threadId: string,
     patch: {

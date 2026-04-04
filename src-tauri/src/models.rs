@@ -73,6 +73,8 @@ pub struct ThreadDto {
     pub total_tokens: i64,
     pub created_at: String,
     pub last_activity_at: String,
+    pub sort_order: i64,
+    pub pinned_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -2111,6 +2111,29 @@ fn normalize_thread_title(raw: &str) -> Result<String, String> {
     Ok(title)
 }
 
+#[tauri::command]
+pub async fn reorder_threads(
+    state: State<'_, AppState>,
+    thread_ids: Vec<String>,
+) -> Result<(), String> {
+    run_db(state.db.clone(), move |db| {
+        db::threads::reorder_threads(db, &thread_ids)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn toggle_thread_pin(
+    state: State<'_, AppState>,
+    thread_id: String,
+    pinned: bool,
+) -> Result<ThreadDto, String> {
+    run_db(state.db.clone(), move |db| {
+        db::threads::toggle_thread_pin(db, &thread_id, pinned)
+    })
+    .await
+}
+
 fn normalize_workspace_confirmation_roots(
     writable_roots: &[String],
     _workspace_root: &str,
@@ -2516,6 +2539,8 @@ mod tests {
             total_tokens: 0,
             created_at: "2026-03-13T00:00:00Z".to_string(),
             last_activity_at: "2026-03-13T00:00:00Z".to_string(),
+            sort_order: 0,
+            pinned_at: None,
         };
 
         assert!(should_clone_local_branch_history(&thread));

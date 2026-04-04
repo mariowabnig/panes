@@ -8,6 +8,8 @@ import {
   XCircle,
   ChevronRight,
   Check,
+  Pin,
+  PinOff,
 } from "lucide-react";
 import type { Thread } from "../../types";
 import type { ThreadUserStatus } from "../../types";
@@ -20,6 +22,7 @@ interface ThreadContextMenuProps {
   onRename: () => void;
   onArchive: () => void;
   onSetStatus: (status: ThreadUserStatus | null) => void;
+  onTogglePin: () => void;
 }
 
 const USER_STATUSES: { value: ThreadUserStatus; label: string; color: string }[] = [
@@ -51,7 +54,9 @@ export function ThreadContextMenu({
   onRename,
   onArchive,
   onSetStatus,
+  onTogglePin,
 }: ThreadContextMenuProps) {
+  const isPinned = thread.pinnedAt != null;
   const menuRef = useRef<HTMLDivElement>(null);
   const submenuRef = useRef<HTMLDivElement>(null);
   const statusItemRef = useRef<HTMLButtonElement>(null);
@@ -140,6 +145,14 @@ export function ThreadContextMenu({
           {activeStatus ? <StatusIcon status={activeStatus} /> : <Circle size={13} style={{ color: "var(--text-3)" }} />}
           Set status
           <ChevronRight size={11} style={{ marginLeft: "auto" }} />
+        </button>
+        <button
+          type="button"
+          className="git-action-menu-item"
+          onClick={() => handleItem(onTogglePin)}
+        >
+          {isPinned ? <PinOff size={13} /> : <Pin size={13} />}
+          {isPinned ? "Unpin" : "Pin to top"}
         </button>
         <div className="git-action-menu-divider" />
         <button

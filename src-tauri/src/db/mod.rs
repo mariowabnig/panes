@@ -130,6 +130,7 @@ impl Database {
         ensure_runtime_columns(&conn)?;
         ensure_messages_audit_columns(&conn)?;
         ensure_workspace_sort_order_column(&conn)?;
+        ensure_thread_sort_and_pin_columns(&conn)?;
         repair_normalized_workspace_and_repo_paths(&mut conn)?;
         Ok(())
     }
@@ -1011,6 +1012,12 @@ mod tests {
 
 fn ensure_workspace_sort_order_column(conn: &Connection) -> anyhow::Result<()> {
     ensure_column(conn, "workspaces", "sort_order", "INTEGER NOT NULL DEFAULT 0")?;
+    Ok(())
+}
+
+fn ensure_thread_sort_and_pin_columns(conn: &Connection) -> anyhow::Result<()> {
+    ensure_column(conn, "threads", "sort_order", "INTEGER NOT NULL DEFAULT 0")?;
+    ensure_column(conn, "threads", "pinned_at", "TEXT")?;
     Ok(())
 }
 

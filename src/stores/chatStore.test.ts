@@ -1022,6 +1022,8 @@ describe("chatStore send", () => {
         totalTokens: 0,
         createdAt: new Date().toISOString(),
         lastActivityAt: new Date().toISOString(),
+        sortOrder: 0,
+        pinnedAt: null,
       };
 
       useThreadStore.setState({
@@ -1090,6 +1092,8 @@ describe("chatStore send", () => {
       totalTokens: 0,
       createdAt: new Date().toISOString(),
       lastActivityAt: new Date().toISOString(),
+      sortOrder: 0,
+      pinnedAt: null,
     };
 
     useThreadStore.setState({

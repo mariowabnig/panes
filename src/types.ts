@@ -168,6 +168,8 @@ export interface Thread {
   totalTokens: number;
   createdAt: string;
   lastActivityAt: string;
+  sortOrder: number;
+  pinnedAt: string | null;
 }
 
 export interface CodexRemoteThread {
