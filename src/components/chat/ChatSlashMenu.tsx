@@ -8,6 +8,7 @@ export interface SlashCommand {
   description: string;
   icon: LucideIcon;
   codexOnly?: boolean;
+  claudeSkill?: boolean;
   disabled?: boolean;
 }
 
@@ -105,6 +106,9 @@ export function ChatSlashMenu({
             </span>
             {cmd.codexOnly && (
               <span className="slash-menu-item-badge">Codex</span>
+            )}
+            {cmd.claudeSkill && (
+              <span className="slash-menu-item-badge">Skill</span>
             )}
           </button>
         );

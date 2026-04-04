@@ -92,6 +92,7 @@ import type {
   ApprovalResponse,
   ChatAttachment,
   ChatInputItem,
+  ClaudeSkill,
   CodexApp,
   CodexSkill,
   ContentBlock,
@@ -1340,6 +1341,7 @@ export function ChatPanel() {
   const selectedModelIdRef = useRef<string | null>(selectedModelId);
   const selectedEffortRef = useRef(selectedEffort);
   const [codexSkills, setCodexSkills] = useState<CodexSkill[]>([]);
+  const [claudeSkills, setClaudeSkills] = useState<ClaudeSkill[]>([]);
   const [codexApps, setCodexApps] = useState<CodexApp[]>([]);
   const [codexReferenceCatalogState, setCodexReferenceCatalogState] =
     useState<CodexReferenceCatalogState>({
@@ -2498,6 +2500,25 @@ export function ChatPanel() {
     };
   }, [activeWorkspaceId, codexReferenceRoot, loadCodexReferenceCatalogs, selectedEngineId]);
 
+  // Load Claude skills when the Claude engine is selected
+  useEffect(() => {
+    if (selectedEngineId !== "claude") {
+      setClaudeSkills([]);
+      return;
+    }
+    let disposed = false;
+    ipc.listClaudeSkills().then((skills) => {
+      if (!disposed) {
+        setClaudeSkills(skills);
+      }
+    }).catch(() => {
+      if (!disposed) {
+        setClaudeSkills([]);
+      }
+    });
+    return () => { disposed = true; };
+  }, [selectedEngineId]);
+
   useEffect(() => {
     if (
       selectedEngineId !== "codex" ||
@@ -3162,83 +3183,97 @@ export function ChatPanel() {
     activeThread?.engineMetadata?.codexTranscriptImported !== false;
 
   const isCodexEngine = selectedEngineId === "codex";
+  const isClaudeEngine = selectedEngineId === "claude";
 
   const slashCommands: SlashCommand[] = useMemo(
-    () => [
-      {
-        id: "review",
-        name: "review",
-        description: t("reviewPicker.subtitle"),
-        icon: Search,
-        codexOnly: true,
-        disabled: !canManageActiveCodexThread,
-      },
-      {
-        id: "fork",
-        name: "fork",
-        description: t("threadPicker.forkDescription"),
-        icon: GitBranch,
-        codexOnly: true,
-        disabled: !canUseNativeCodexHistoryTools,
-      },
-      {
-        id: "rollback",
-        name: "rollback",
-        description: t("threadPicker.rollbackDescription"),
-        icon: RotateCcw,
-        codexOnly: true,
-        disabled: !canUseNativeCodexHistoryTools,
-      },
-      {
-        id: "compact",
-        name: "compact",
-        description: t("threadPicker.compactDescription"),
-        icon: Scissors,
-        codexOnly: true,
-        disabled: !canManageActiveCodexThread,
-      },
-      {
-        id: "fast",
-        name: "fast",
-        description: t("configPicker.serviceTierDescription"),
-        icon: Zap,
-        codexOnly: true,
-        disabled: !isCodexEngine,
-      },
-      {
-        id: "personality",
-        name: "personality",
-        description: t("configPicker.personalityDescription"),
-        icon: UserCircle,
-        codexOnly: true,
-        disabled: !isCodexEngine,
-      },
-      {
-        id: "skills",
-        name: "skills",
-        description: "View loaded Codex skills",
+    () => {
+      const codexCommands: SlashCommand[] = [
+        {
+          id: "review",
+          name: "review",
+          description: t("reviewPicker.subtitle"),
+          icon: Search,
+          codexOnly: true,
+          disabled: !canManageActiveCodexThread,
+        },
+        {
+          id: "fork",
+          name: "fork",
+          description: t("threadPicker.forkDescription"),
+          icon: GitBranch,
+          codexOnly: true,
+          disabled: !canUseNativeCodexHistoryTools,
+        },
+        {
+          id: "rollback",
+          name: "rollback",
+          description: t("threadPicker.rollbackDescription"),
+          icon: RotateCcw,
+          codexOnly: true,
+          disabled: !canUseNativeCodexHistoryTools,
+        },
+        {
+          id: "compact",
+          name: "compact",
+          description: t("threadPicker.compactDescription"),
+          icon: Scissors,
+          codexOnly: true,
+          disabled: !canManageActiveCodexThread,
+        },
+        {
+          id: "fast",
+          name: "fast",
+          description: t("configPicker.serviceTierDescription"),
+          icon: Zap,
+          codexOnly: true,
+          disabled: !isCodexEngine,
+        },
+        {
+          id: "personality",
+          name: "personality",
+          description: t("configPicker.personalityDescription"),
+          icon: UserCircle,
+          codexOnly: true,
+          disabled: !isCodexEngine,
+        },
+        {
+          id: "skills",
+          name: "skills",
+          description: "View loaded Codex skills",
+          icon: Sparkles,
+          codexOnly: true,
+          disabled: !isCodexEngine,
+        },
+        {
+          id: "mcp",
+          name: "MCP",
+          description: "View MCP server status",
+          icon: Server,
+          codexOnly: true,
+          disabled: !isCodexEngine,
+        },
+        {
+          id: "experimental",
+          name: "experimental",
+          description: "View experimental features",
+          icon: FlaskConical,
+          codexOnly: true,
+          disabled: !isCodexEngine,
+        },
+      ];
+
+      const claudeSkillCommands: SlashCommand[] = claudeSkills.map((skill) => ({
+        id: `claude-skill:${skill.name}`,
+        name: skill.name,
+        description: skill.description || `Run /${skill.name} skill`,
         icon: Sparkles,
-        codexOnly: true,
-        disabled: !isCodexEngine,
-      },
-      {
-        id: "mcp",
-        name: "MCP",
-        description: "View MCP server status",
-        icon: Server,
-        codexOnly: true,
-        disabled: !isCodexEngine,
-      },
-      {
-        id: "experimental",
-        name: "experimental",
-        description: "View experimental features",
-        icon: FlaskConical,
-        codexOnly: true,
-        disabled: !isCodexEngine,
-      },
-    ],
-    [canManageActiveCodexThread, canUseNativeCodexHistoryTools, isCodexEngine, t],
+        claudeSkill: true,
+        disabled: !isClaudeEngine,
+      }));
+
+      return [...codexCommands, ...claudeSkillCommands];
+    },
+    [canManageActiveCodexThread, canUseNativeCodexHistoryTools, isCodexEngine, isClaudeEngine, claudeSkills, t],
   );
 
   const filteredSlashCommands = useMemo(() => {
@@ -3259,6 +3294,13 @@ export function ChatPanel() {
 
     const cmd = slashCommands.find((c) => c.id === commandId);
     if (!cmd || cmd.disabled) return;
+
+    // Claude skills: inject /skillname as message text
+    if (cmd.claudeSkill) {
+      const skillName = commandId.replace("claude-skill:", "");
+      setInput(`/${skillName}`);
+      return;
+    }
 
     // /fast is a simple toggle — no panel needed
     if (commandId === "fast") {

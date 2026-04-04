@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::time::Instant;
 
 use anyhow::Context;
@@ -7,7 +8,10 @@ use tokio::process::Command;
 #[cfg(not(target_os = "windows"))]
 use crate::runtime_env;
 use crate::{
-    models::{CodexAppDto, CodexSkillDto, EngineCheckResultDto, EngineHealthDto, EngineInfoDto},
+    models::{
+        ClaudeSkillDto, CodexAppDto, CodexSkillDto, EngineCheckResultDto, EngineHealthDto,
+        EngineInfoDto,
+    },
     process_utils,
     state::AppState,
 };
@@ -48,6 +52,116 @@ pub async fn list_codex_skills(
         .list_codex_skills(cwd.trim())
         .await
         .map_err(err_to_string)
+}
+
+#[tauri::command]
+pub async fn list_claude_skills() -> Result<Vec<ClaudeSkillDto>, String> {
+    let skills_dir = crate::runtime_env::home_dir()
+        .map(|h| h.join(".claude").join("skills"))
+        .unwrap_or_else(|| PathBuf::from(""));
+
+    if !skills_dir.is_dir() {
+        return Ok(vec![]);
+    }
+
+    let mut skills = Vec::new();
+    let entries = std::fs::read_dir(&skills_dir).map_err(|e| e.to_string())?;
+
+    for entry in entries.flatten() {
+        let skill_md = entry.path().join("SKILL.md");
+        if !skill_md.is_file() {
+            continue;
+        }
+        let content = match std::fs::read_to_string(&skill_md) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        let (name, description) = parse_skill_frontmatter(&content);
+        let name = name.unwrap_or_else(|| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .to_string()
+        });
+        skills.push(ClaudeSkillDto {
+            name,
+            description: description.unwrap_or_default(),
+        });
+    }
+
+    skills.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(skills)
+}
+
+fn parse_skill_frontmatter(content: &str) -> (Option<String>, Option<String>) {
+    let trimmed = content.trim_start();
+    if !trimmed.starts_with("---") {
+        return (None, None);
+    }
+    let after_open = &trimmed[3..];
+    let end = match after_open.find("\n---") {
+        Some(pos) => pos,
+        None => return (None, None),
+    };
+    let frontmatter = &after_open[..end];
+
+    let mut name: Option<String> = None;
+    let mut description: Option<String> = None;
+    let mut in_multiline_desc = false;
+    let mut desc_lines: Vec<String> = Vec::new();
+
+    for line in frontmatter.lines() {
+        if in_multiline_desc {
+            let stripped = line.trim();
+            if stripped.is_empty() || (!line.starts_with(' ') && !line.starts_with('\t')) {
+                in_multiline_desc = false;
+                description = Some(desc_lines.join(" ").trim().to_string());
+                // Still process this line for other keys
+                if let Some((key, value)) = line.split_once(':') {
+                    let key = key.trim();
+                    let value = value.trim().trim_matches('"');
+                    if key == "name" && !value.is_empty() {
+                        name = Some(value.to_string());
+                    }
+                }
+            } else {
+                desc_lines.push(stripped.to_string());
+                continue;
+            }
+            continue;
+        }
+
+        if let Some((key, value)) = line.split_once(':') {
+            let key = key.trim();
+            let value = value.trim();
+            match key {
+                "name" => {
+                    let v = value.trim_matches('"');
+                    if !v.is_empty() {
+                        name = Some(v.to_string());
+                    }
+                }
+                "description" => {
+                    if value == ">" || value == "|" {
+                        in_multiline_desc = true;
+                        desc_lines.clear();
+                    } else {
+                        let v = value.trim_matches('"');
+                        if !v.is_empty() {
+                            description = Some(v.to_string());
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    if in_multiline_desc && !desc_lines.is_empty() {
+        description = Some(desc_lines.join(" ").trim().to_string());
+    }
+
+    (name, description)
 }
 
 #[tauri::command]

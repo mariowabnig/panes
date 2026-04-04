@@ -11,6 +11,7 @@ import type {
   CodexReviewTarget,
   CodexRemoteThreadPage,
   ContentBlock,
+  ClaudeSkill,
   CodexApp,
   CodexSkill,
   DependencyReport,
@@ -276,6 +277,7 @@ export const ipc = {
     invoke<EngineCheckResult>("run_engine_check", { engineId, command }),
   listCodexSkills: (cwd: string) =>
     invoke<CodexSkill[]>("list_codex_skills", { cwd }),
+  listClaudeSkills: () => invoke<ClaudeSkill[]>("list_claude_skills"),
   listCodexApps: () => invoke<CodexApp[]>("list_codex_apps"),
   sendMessage: (
     threadId: string,

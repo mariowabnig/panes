@@ -516,6 +516,11 @@ export interface CodexSkill {
   scope: string;
 }
 
+export interface ClaudeSkill {
+  name: string;
+  description: string;
+}
+
 export interface CodexPluginMarketplace {
   name: string;
   path: string;

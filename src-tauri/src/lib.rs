@@ -269,6 +269,7 @@ pub fn run() {
             commands::engines::engine_health,
             commands::engines::prewarm_engine,
             commands::engines::list_codex_skills,
+            commands::engines::list_claude_skills,
             commands::engines::list_codex_apps,
             commands::engines::run_engine_check,
             commands::threads::list_threads,

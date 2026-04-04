@@ -7,6 +7,7 @@
 * **engines:** add GitHub Copilot as a third chat engine alongside Codex and Claude
 * **harness:** add GitHub Copilot to harness detection, install, and launch flows
 * **copilot:** implement full sidecar protocol — typed NDJSON events, streaming chat, agentic tool use with approval flow, token caching, and cancel/approval_response routing
+* **chat:** expose Claude skills in the slash menu — `list_claude_skills` Rust command reads `~/.claude/skills/*/SKILL.md` frontmatter; selecting a skill sets and auto-submits `/skillname`
 
 ## [](https://github.com/wygoralves/panes/compare/v0.51.2...vnull) (2026-04-01)
 

@@ -395,6 +395,13 @@ pub struct CodexSkillDto {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ClaudeSkillDto {
+    pub name: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CodexPluginMarketplaceDto {
     pub name: String,
     pub path: String,
