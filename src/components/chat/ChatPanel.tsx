@@ -3399,7 +3399,7 @@ export function ChatPanel() {
 
   function handleSlashDetection(value: string, cursorPos: number) {
     const textBeforeCursor = value.slice(0, cursorPos);
-    const slashMatch = /(?:^|\s)(\/([a-z]*))$/.exec(textBeforeCursor);
+    const slashMatch = /(?:^|\s)(\/([a-z][a-z0-9-]*|[a-z]?))$/.exec(textBeforeCursor);
     if (slashMatch) {
       setSlashMenuOpen(true);
       setSlashMenuQuery(slashMatch[2] ?? "");

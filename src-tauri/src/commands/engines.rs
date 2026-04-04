@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::time::Instant;
 
 use anyhow::Context;
@@ -56,17 +55,37 @@ pub async fn list_codex_skills(
 
 #[tauri::command]
 pub async fn list_claude_skills() -> Result<Vec<ClaudeSkillDto>, String> {
-    let skills_dir = crate::runtime_env::home_dir()
-        .map(|h| h.join(".claude").join("skills"))
-        .unwrap_or_else(|| PathBuf::from(""));
-
-    if !skills_dir.is_dir() {
-        return Ok(vec![]);
-    }
+    let home = match crate::runtime_env::home_dir() {
+        Some(h) => h,
+        None => return Ok(vec![]),
+    };
+    let claude_dir = home.join(".claude");
 
     let mut skills = Vec::new();
-    let entries = std::fs::read_dir(&skills_dir).map_err(|e| e.to_string())?;
+    let mut seen_names = std::collections::HashSet::new();
 
+    // Scan ~/.claude/skills/*/SKILL.md (user-authored skills)
+    scan_skills_dir(&claude_dir.join("skills"), &mut skills, &mut seen_names);
+
+    // Scan ~/.claude/plugins/**/skills/*/SKILL.md (plugin-bundled skills)
+    let plugins_dir = claude_dir.join("plugins");
+    if plugins_dir.is_dir() {
+        scan_plugin_skills_recursive(&plugins_dir, &mut skills, &mut seen_names);
+    }
+
+    skills.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(skills)
+}
+
+fn scan_skills_dir(
+    dir: &std::path::Path,
+    skills: &mut Vec<ClaudeSkillDto>,
+    seen: &mut std::collections::HashSet<String>,
+) {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return,
+    };
     for entry in entries.flatten() {
         let skill_md = entry.path().join("SKILL.md");
         if !skill_md.is_file() {
@@ -78,19 +97,37 @@ pub async fn list_claude_skills() -> Result<Vec<ClaudeSkillDto>, String> {
         };
         let (name, description) = parse_skill_frontmatter(&content);
         let name = name.unwrap_or_else(|| {
-            entry
-                .file_name()
-                .to_string_lossy()
-                .to_string()
+            entry.file_name().to_string_lossy().to_string()
         });
-        skills.push(ClaudeSkillDto {
-            name,
-            description: description.unwrap_or_default(),
-        });
+        if seen.insert(name.clone()) {
+            skills.push(ClaudeSkillDto {
+                name,
+                description: description.unwrap_or_default(),
+            });
+        }
     }
+}
 
-    skills.sort_by(|a, b| a.name.cmp(&b.name));
-    Ok(skills)
+fn scan_plugin_skills_recursive(
+    dir: &std::path::Path,
+    skills: &mut Vec<ClaudeSkillDto>,
+    seen: &mut std::collections::HashSet<String>,
+) {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        if path.file_name().map_or(false, |n| n == "skills") {
+            scan_skills_dir(&path, skills, seen);
+        } else {
+            scan_plugin_skills_recursive(&path, skills, seen);
+        }
+    }
 }
 
 fn parse_skill_frontmatter(content: &str) -> (Option<String>, Option<String>) {
