@@ -59,6 +59,7 @@ interface ThreadState {
   setThreadStatusLocal: (threadId: string, status: ThreadStatus) => void;
   setThreadReasoningEffortLocal: (threadId: string, reasoningEffort: string | null) => void;
   setThreadLastModelLocal: (threadId: string, modelId: string | null) => void;
+  setThreadHarnessLocal: (threadId: string, harnessId: string | null) => void;
 }
 
 const DEFAULT_ENGINE = NEW_THREAD_FALLBACK_RUNTIME.engineId;
@@ -113,6 +114,30 @@ function applyThreadLastModel(
     ...thread,
     engineMetadata: Object.keys(metadata).length ? metadata : undefined,
   };
+}
+
+function applyThreadHarness(
+  thread: Thread,
+  harnessId: string | null,
+): Thread {
+  const metadata = { ...(thread.engineMetadata ?? {}) };
+  if (harnessId) {
+    metadata.harnessId = harnessId;
+  } else {
+    delete metadata.harnessId;
+  }
+
+  return {
+    ...thread,
+    engineMetadata: Object.keys(metadata).length ? metadata : undefined,
+  };
+}
+
+export function readThreadHarnessId(thread: Thread): string | null {
+  const raw = thread.engineMetadata?.harnessId;
+  if (typeof raw !== "string") return null;
+  const normalized = raw.trim();
+  return normalized.length > 0 ? normalized : null;
 }
 
 function readThreadLastModelId(thread: Thread): string | null {
@@ -671,6 +696,25 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
       const updateThread = (thread: Thread) =>
         thread.id === threadId
           ? applyThreadLastModel(thread, modelId)
+          : thread;
+
+      const threadsByWorkspace = Object.entries(state.threadsByWorkspace).reduce<
+        Record<string, Thread[]>
+      >((acc, [workspaceId, threads]) => {
+        acc[workspaceId] = threads.map(updateThread);
+        return acc;
+      }, {});
+
+      return {
+        threadsByWorkspace,
+        threads: state.threads.map(updateThread),
+      };
+    }),
+  setThreadHarnessLocal: (threadId, harnessId) =>
+    set((state) => {
+      const updateThread = (thread: Thread) =>
+        thread.id === threadId
+          ? applyThreadHarness(thread, harnessId)
           : thread;
 
       const threadsByWorkspace = Object.entries(state.threadsByWorkspace).reduce<

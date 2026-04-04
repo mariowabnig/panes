@@ -1825,6 +1825,7 @@ export function CommandPalette({ open, onClose }: Props) {
       }
       setActiveThread(targetThread.id);
       await bindChatThread(targetThread.id);
+      useTerminalStore.getState().restoreThreadGroup(targetThread.workspaceId, targetThread.id);
       useUiStore.getState().setActiveView("chat");
       onClose();
     },
@@ -1879,6 +1880,7 @@ export function CommandPalette({ open, onClose }: Props) {
           await useTerminalStore.getState().setLayoutMode(thread.workspaceId, "chat");
           useThreadStore.getState().setActiveThread(thread.id);
           await useChatStore.getState().setActiveThread(thread.id);
+          useTerminalStore.getState().restoreThreadGroup(thread.workspaceId, thread.id);
           useUiStore.getState().setActiveView("chat");
           onClose();
           break;

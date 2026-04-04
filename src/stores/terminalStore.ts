@@ -20,6 +20,18 @@ import type {
 
 export type LayoutMode = "chat" | "terminal" | "split" | "editor";
 
+/**
+ * Resolve the terminal cwd for a thread: repo path if repoId is set, otherwise workspace rootPath.
+ */
+export function resolveThreadCwd(workspaceId: string, repoId: string | null): string | null {
+  const { workspaces, repos } = useWorkspaceStore.getState();
+  const workspace = workspaces.find((w) => w.id === workspaceId);
+  if (!workspace) return null;
+  if (!repoId) return workspace.rootPath;
+  const repo = repos.find((r) => r.id === repoId);
+  return repo?.path ?? workspace.rootPath;
+}
+
 const DEFAULT_PANEL_SIZE = 32;
 const DEFAULT_COLS = 120;
 const DEFAULT_ROWS = 36;
@@ -428,6 +440,7 @@ interface WorkspaceTerminalState {
   activeGroupId: string | null;
   focusedSessionId: string | null;
   broadcastGroupId: string | null;
+  threadGroupMap: Record<string, string>;
   startupPreset: WorkspaceStartupPreset | null;
   pendingStartupPreset: WorkspaceStartupPreset | null;
   loading: boolean;
@@ -448,7 +461,7 @@ interface TerminalState {
   setLayoutMode: (workspaceId: string, mode: LayoutMode) => Promise<void>;
   cycleLayoutMode: (workspaceId: string) => Promise<void>;
   runCommandInTerminal: (workspaceId: string, command: string) => Promise<boolean>;
-  createSession: (workspaceId: string, cols?: number, rows?: number, harnessId?: string, harnessName?: string) => Promise<string | null>;
+  createSession: (workspaceId: string, cols?: number, rows?: number, harnessId?: string, harnessName?: string, cwd?: string | null) => Promise<string | null>;
   materializeWorkspaceStartupPreset: (
     workspaceId: string,
     preset: WorkspaceStartupPreset,
@@ -498,6 +511,9 @@ interface TerminalState {
   ) => Promise<{ groupId: string; sessionIds: string[] } | null>;
   getGroupWorktrees: (workspaceId: string, groupId: string) => WorktreeSessionInfo[];
   removeGroupWorktrees: (workspaceId: string, worktrees: WorktreeSessionInfo[]) => Promise<void>;
+  bindThreadGroup: (workspaceId: string, threadId: string, groupId: string) => void;
+  restoreThreadGroup: (workspaceId: string, threadId: string) => boolean;
+  unbindThreadGroup: (workspaceId: string, threadId: string) => void;
 }
 
 function defaultWorkspaceState(): WorkspaceTerminalState {
@@ -517,6 +533,7 @@ function defaultWorkspaceState(): WorkspaceTerminalState {
     activeGroupId: null,
     focusedSessionId: null,
     broadcastGroupId: null,
+    threadGroupMap: {},
     startupPreset: null,
     pendingStartupPreset: null,
     loading: false,
@@ -1382,7 +1399,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }
   },
 
-  createSession: async (workspaceId, cols = DEFAULT_COLS, rows = DEFAULT_ROWS, harnessId, harnessName) => {
+  createSession: async (workspaceId, cols = DEFAULT_COLS, rows = DEFAULT_ROWS, harnessId, harnessName, cwd) => {
     set((state) => ({
       workspaces: mergeWorkspaceState(state.workspaces, workspaceId, {
         isOpen: true,
@@ -1392,7 +1409,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }));
 
     try {
-      const created = await ipc.terminalCreateSession(workspaceId, cols, rows);
+      const created = await ipc.terminalCreateSession(workspaceId, cols, rows, cwd ?? undefined);
       set((state) => {
         const current = state.workspaces[workspaceId] ?? defaultWorkspaceState();
 
@@ -1689,6 +1706,12 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         ? workspace.pendingStartupPreset ?? pendingStartupPresetFor(workspace.startupPreset)
         : workspace.pendingStartupPreset;
 
+      // Prune threadGroupMap entries pointing to groups that no longer exist
+      const survivingGroupIds = new Set(groups.map((g) => g.id));
+      const threadGroupMap = Object.fromEntries(
+        Object.entries(workspace.threadGroupMap).filter(([, gid]) => survivingGroupIds.has(gid)),
+      );
+
       return {
         workspaces: mergeWorkspaceState(state.workspaces, workspaceId, {
           isOpen: noSessionsLeft ? false : workspace.isOpen,
@@ -1700,6 +1723,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
           activeGroupId,
           focusedSessionId: focusedId,
           broadcastGroupId,
+          threadGroupMap,
           pendingStartupPreset,
           ...(noSessionsLeft && isTerminalMode ? { layoutMode: "chat" as LayoutMode } : {}),
         }),
@@ -2044,5 +2068,38 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       }),
     }));
     throw new Error(message);
+  },
+
+  bindThreadGroup: (workspaceId, threadId, groupId) => {
+    set((state) => {
+      const ws = state.workspaces[workspaceId] ?? defaultWorkspaceState();
+      return {
+        workspaces: mergeWorkspaceState(state.workspaces, workspaceId, {
+          threadGroupMap: { ...ws.threadGroupMap, [threadId]: groupId },
+        }),
+      };
+    });
+  },
+
+  restoreThreadGroup: (workspaceId, threadId) => {
+    const ws = get().workspaces[workspaceId] ?? defaultWorkspaceState();
+    const groupId = ws.threadGroupMap[threadId];
+    if (!groupId) return false;
+    const group = ws.groups.find((g) => g.id === groupId);
+    if (!group) return false;
+    get().setActiveGroup(workspaceId, groupId);
+    return true;
+  },
+
+  unbindThreadGroup: (workspaceId, threadId) => {
+    set((state) => {
+      const ws = state.workspaces[workspaceId] ?? defaultWorkspaceState();
+      const { [threadId]: _removed, ...rest } = ws.threadGroupMap;
+      return {
+        workspaces: mergeWorkspaceState(state.workspaces, workspaceId, {
+          threadGroupMap: rest,
+        }),
+      };
+    });
   },
 }));

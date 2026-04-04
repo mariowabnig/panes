@@ -225,6 +225,8 @@ export const ipc = {
     modelId?: string | null,
   ) =>
     invoke<void>("set_thread_reasoning_effort", { threadId, reasoningEffort, modelId: modelId ?? null }),
+  setThreadHarness: (threadId: string, harnessId: string | null) =>
+    invoke<void>("set_thread_harness", { threadId, harnessId }),
   setThreadExecutionPolicy: (
     threadId: string,
     patch: {

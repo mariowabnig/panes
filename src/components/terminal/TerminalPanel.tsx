@@ -43,7 +43,9 @@ import {
   useTerminalStore,
   collectSessionIds,
   getGroupDisplayHarness,
+  resolveThreadCwd,
 } from "../../stores/terminalStore";
+import { useThreadStore, readThreadHarnessId } from "../../stores/threadStore";
 import { useUiStore } from "../../stores/uiStore";
 import type {
   SplitNode,
@@ -3537,6 +3539,32 @@ export function TerminalPanel({ workspaceId }: TerminalPanelProps) {
         const applied = await materializeWorkspaceStartupPreset(workspaceId, pendingStartupPreset);
         if (!applied) {
           await createSession(workspaceId);
+        }
+        return;
+      }
+      // Check if active thread has a saved harness — auto-launch it
+      const threadState = useThreadStore.getState();
+      const activeThread = threadState.threads.find(
+        (t) => t.id === threadState.activeThreadId && t.workspaceId === workspaceId,
+      );
+      const savedHarnessId = activeThread ? readThreadHarnessId(activeThread) : null;
+      if (savedHarnessId) {
+        const harnessState = useHarnessStore.getState();
+        const harness = harnessState.harnesses.find((h) => h.id === savedHarnessId);
+        const command = await harnessState.launch(savedHarnessId);
+        const cwd = resolveThreadCwd(workspaceId, activeThread?.repoId ?? null);
+        const sessionId = await createSession(workspaceId, undefined, undefined, savedHarnessId, harness?.name, cwd);
+        if (sessionId) {
+          if (command) {
+            void writeCommandToNewSession(workspaceId, sessionId, command);
+          }
+          // Bind group to thread regardless of whether harness command succeeded
+          const termState = useTerminalStore.getState();
+          const ws = termState.workspaces[workspaceId];
+          const group = ws?.groups.find((g) => collectSessionIds(g.root).includes(sessionId));
+          if (group && activeThread) {
+            termState.bindThreadGroup(workspaceId, activeThread.id, group.id);
+          }
         }
         return;
       }

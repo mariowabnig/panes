@@ -14,11 +14,13 @@ import {
   Terminal,
 } from "lucide-react";
 import { useHarnessStore } from "../../stores/harnessStore";
-import { useTerminalStore } from "../../stores/terminalStore";
+import { useTerminalStore, resolveThreadCwd } from "../../stores/terminalStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
+import { useThreadStore, readThreadHarnessId } from "../../stores/threadStore";
 import { useUiStore } from "../../stores/uiStore";
-import { writeCommandToNewSession } from "../../lib/ipc";
+import { ipc, writeCommandToNewSession } from "../../lib/ipc";
 import { copyTextToClipboard } from "../../lib/clipboard";
+import { collectSessionIds } from "../../stores/terminalStore";
 import {
   getHarnessInstallCommand,
   getHarnessTileAction,
@@ -31,6 +33,7 @@ import type { HarnessInfo } from "../../types";
 function HarnessTile({
   harness,
   description,
+  selected,
   onInstallInTerminal,
   onCopyCommand,
   onLaunch,
@@ -38,6 +41,7 @@ function HarnessTile({
 }: {
   harness: HarnessInfo;
   description: string;
+  selected?: boolean;
   onInstallInTerminal: () => void;
   onCopyCommand: () => void;
   onLaunch: () => void;
@@ -48,7 +52,7 @@ function HarnessTile({
   const action = getHarnessTileAction(harness);
 
   return (
-    <div className={`hp-tile${harness.native ? " hp-tile-native" : ""}${harness.found ? " hp-tile-installed" : ""}`}>
+    <div className={`hp-tile${harness.native ? " hp-tile-native" : ""}${harness.found ? " hp-tile-installed" : ""}${selected ? " hp-tile-selected" : ""}`}>
       <div className="hp-tile-icon">
         {getHarnessIcon(harness.id, harness.native ? 22 : 18)}
       </div>
@@ -123,10 +127,18 @@ export function HarnessPanel() {
   const launch = useHarnessStore((s) => s.launch);
 
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const activeRepoId = useWorkspaceStore((s) => s.activeRepoId);
   const setLayoutMode = useTerminalStore((s) => s.setLayoutMode);
   const createSession = useTerminalStore((s) => s.createSession);
+  const bindThreadGroup = useTerminalStore((s) => s.bindThreadGroup);
   const terminalWorkspaces = useTerminalStore((s) => s.workspaces);
   const setActiveView = useUiStore((s) => s.setActiveView);
+  const activeThreadId = useThreadStore((s) => s.activeThreadId);
+  const setThreadHarnessLocal = useThreadStore((s) => s.setThreadHarnessLocal);
+  const activeThread = useThreadStore((s) =>
+    s.threads.find((t) => t.id === s.activeThreadId) ?? null,
+  );
+  const selectedHarnessId = activeThread ? readThreadHarnessId(activeThread) : null;
 
   const installedCount = harnesses.filter((h) => h.found).length;
   const goBack = useCallback(() => setActiveView("chat"), [setActiveView]);
@@ -139,7 +151,7 @@ export function HarnessPanel() {
   }, [ensureScanned, loadedOnce]);
 
   const spawnInTerminal = useCallback(
-    async (command: string) => {
+    async (command: string, harnessId?: string, harnessName?: string) => {
       if (!activeWorkspaceId) return;
 
       const wsState = terminalWorkspaces[activeWorkspaceId];
@@ -147,19 +159,33 @@ export function HarnessPanel() {
         await setLayoutMode(activeWorkspaceId, "terminal");
       }
 
-      const sessionId = await createSession(activeWorkspaceId);
+      const cwd = resolveThreadCwd(activeWorkspaceId, activeRepoId);
+      const sessionId = await createSession(activeWorkspaceId, undefined, undefined, harnessId, harnessName, cwd);
       if (sessionId) {
         void writeCommandToNewSession(activeWorkspaceId, sessionId, command);
+        // Bind this terminal group to the active thread
+        if (activeThreadId) {
+          const ws = useTerminalStore.getState().workspaces[activeWorkspaceId];
+          const group = ws?.groups.find((g) => collectSessionIds(g.root).includes(sessionId));
+          if (group) bindThreadGroup(activeWorkspaceId, activeThreadId, group.id);
+        }
       }
 
       setActiveView("chat");
     },
-    [activeWorkspaceId, terminalWorkspaces, setLayoutMode, createSession, setActiveView],
+    [activeWorkspaceId, activeRepoId, activeThreadId, terminalWorkspaces, setLayoutMode, createSession, bindThreadGroup, setActiveView],
   );
 
   async function handleLaunch(harnessId: string) {
+    const harness = harnesses.find((h) => h.id === harnessId);
     const command = await launch(harnessId);
-    if (command) await spawnInTerminal(command);
+    if (!command) return;
+    // Persist harness selection only after a successful launch
+    if (activeThreadId) {
+      setThreadHarnessLocal(activeThreadId, harnessId);
+      void ipc.setThreadHarness(activeThreadId, harnessId);
+    }
+    await spawnInTerminal(command, harnessId, harness?.name);
   }
 
   function handleInstallInTerminal(harnessId: string) {
@@ -253,6 +279,7 @@ export function HarnessPanel() {
                   key={h.id}
                   harness={h}
                   description={t(`harnesses.descriptions.${h.id}`, { defaultValue: h.description })}
+                  selected={selectedHarnessId === h.id}
                   onInstallInTerminal={() => handleInstallInTerminal(h.id)}
                   onCopyCommand={() => handleCopyCommand(h.id)}
                   onLaunch={() => void handleLaunch(h.id)}

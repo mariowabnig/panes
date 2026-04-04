@@ -1831,6 +1831,42 @@ fn map_codex_thread_status_to_local(
     }
 }
 
+#[tauri::command]
+pub async fn set_thread_harness(
+    state: State<'_, AppState>,
+    thread_id: String,
+    harness_id: Option<String>,
+) -> Result<(), String> {
+    let db = state.db.clone();
+    let thread = run_db(db.clone(), {
+        let thread_id = thread_id.clone();
+        move |db| db::threads::get_thread(db, &thread_id)
+    })
+    .await?
+    .ok_or_else(|| format!("thread not found: {thread_id}"))?;
+
+    let mut metadata = thread.engine_metadata.unwrap_or_else(|| json!({}));
+    if !metadata.is_object() {
+        metadata = json!({});
+    }
+
+    if let Some(object) = metadata.as_object_mut() {
+        match harness_id.as_deref().map(str::trim).filter(|v| !v.is_empty()) {
+            Some(id) => {
+                object.insert("harnessId".to_string(), json!(id));
+            }
+            None => {
+                object.remove("harnessId");
+            }
+        };
+    }
+
+    run_db(db, move |db| {
+        db::threads::update_engine_metadata(db, &thread_id, &metadata)
+    })
+    .await
+}
+
 fn err_to_string(error: impl std::fmt::Display) -> String {
     error.to_string()
 }

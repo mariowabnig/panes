@@ -6873,6 +6873,11 @@ button, input, textarea, select {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.hp-tile-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
 .hp-tile-icon {
   width: 36px;
   height: 36px;
