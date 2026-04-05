@@ -65,7 +65,7 @@ const HARNESSES: &[HarnessDef] = &[
         name: "GitHub Copilot",
         description: "Natively integrated — powers the Panes Copilot chat engine",
         command: "gh",
-        launch_args: &["copilot", "--", "--autopilot", "--allow-all-tools"],
+        launch_args: &["copilot"],
         version_args: &["copilot", "--version"],
         install_command: Some("gh"),
         install_args: &["extension", "install", "github/copilot-cli"],

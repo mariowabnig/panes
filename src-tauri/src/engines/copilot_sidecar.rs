@@ -199,6 +199,21 @@ impl CopilotTransport {
             "SSH_AGENT_PID",
             "GIT_SSH_COMMAND",
             "GPG_TTY",
+            // GitHub auth & config
+            "GH_TOKEN",
+            "GITHUB_TOKEN",
+            "GH_CONFIG_DIR",
+            // Proxy / TLS config (needed when behind corporate proxies).
+            // Lowercase variants are listed first; uppercase variants override
+            // them if both are set (last `command.env()` call wins).
+            "https_proxy",
+            "http_proxy",
+            "no_proxy",
+            "HTTPS_PROXY",
+            "HTTP_PROXY",
+            "NO_PROXY",
+            "NODE_EXTRA_CA_CERTS",
+            "SSL_CERT_FILE",
         ] {
             if let Ok(value) = std::env::var(key) {
                 if !value.is_empty() {

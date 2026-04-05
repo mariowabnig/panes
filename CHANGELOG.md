@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Bug Fixes
+
+* **harness:** remove invalid `--autopilot --allow-all-tools` flags from GitHub Copilot launch command — these flags don't exist in `gh copilot`
+* **sidecar:** forward proxy, TLS, and GitHub auth env vars (`GH_TOKEN`, `GITHUB_TOKEN`, `https_proxy`, etc.) to both Copilot and Claude sidecars so they work behind corporate proxies and when launched from the Dock
+
 ### Features
 
 * **sidebar:** pin threads — right-click any thread to pin/unpin; pinned threads float above unpinned in the sidebar; `pinned_at` timestamp persisted via new `toggle_thread_pin` Rust command
