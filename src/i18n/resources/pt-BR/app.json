@@ -120,7 +120,20 @@
       "codexFork": "Criar fork da thread Codex",
       "codexCompact": "Compactar thread Codex",
       "codexRollback": "Reverter thread Codex",
-      "codexReview": "Iniciar revisão Codex"
+      "codexReview": "Iniciar revisão Codex",
+      "newTerminal": "Nova aba de terminal",
+      "splitTerminal": "Dividir terminal",
+      "closeTerminal": "Fechar terminal",
+      "clearTerminal": "Limpar terminal",
+      "openFile": "Abrir arquivo",
+      "closeTab": "Fechar aba",
+      "closeAllTabs": "Fechar todas as abas",
+      "toggleWordWrap": "Alternar quebra de linha",
+      "fullscreen": "Alternar tela cheia",
+      "themePicker": "Mudar tema...",
+      "themeSystem": "Sistema (Automático)",
+      "themeLight": "Claro",
+      "themeDark": "Escuro"
     },
     "descriptions": {
       "switchThread": "Navegue pelas threads recentes",
@@ -147,7 +160,11 @@
       "launchAgent": "Abrir agente",
       "recentThreads": "Threads recentes",
       "views": "Painéis",
-      "switchRepo": "Trocar repo"
+      "switchRepo": "Trocar repo",
+      "recent": "Recentes",
+      "terminal": "Terminal",
+      "editor": "Editor",
+      "theme": "Tema"
     },
     "status": {
       "loadingBranches": "Carregando branches...",
@@ -180,7 +197,8 @@
       "applyStash": "aplicar stash",
       "popStash": "pop stash",
       "switchRepo": "repo",
-      "codexRollback": "reverter"
+      "codexRollback": "reverter",
+      "themePicker": "tema"
     },
     "preview": {
       "createBranchReady": "Criar branch \"{{name}}\"",
@@ -207,6 +225,7 @@
       "popStash": "Busque stashes...",
       "switchRepo": "Busque repos...",
       "codexRollback": "Número de rodadas para reverter...",
+      "themePicker": "Buscar temas...",
       "search": "Busque mensagens, arquivos ou threads...",
       "fileMode": "Busque arquivos...",
       "auto": "Busque arquivos, comandos e threads..."
@@ -284,7 +303,9 @@
       "codexForked": "Nova thread Codex criada a partir de fork.",
       "codexCompacted": "Compactação da thread Codex iniciada.",
       "codexRolledBack": "Branch de rollback criada ({{count}} rodadas removidas).",
-      "codexReviewStarted": "Revisão inline do Codex iniciada."
+      "codexReviewStarted": "Revisão inline do Codex iniciada.",
+      "wordWrapToggled": "Quebra de linha alternada.",
+      "themeChanged": "Tema alterado."
     }
   },
   "terminal": {

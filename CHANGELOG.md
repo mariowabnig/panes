@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026-04-07]
+
+### Bug Fixes
+
+* **i18n (command palette):** remove duplicate `"themePicker"` JSON keys in `en/app.json` and `pt-BR/app.json`; keys were duplicated at the same JSON level, causing the last value to silently shadow the first
+* **command palette:** add missing i18n keys for terminal/editor/theme commands (`newTerminal`, `splitTerminal`, `closeTerminal`, `clearTerminal`, `openFile`, `closeTab`, `closeAllTabs`, `toggleWordWrap`, `fullscreen`, `themePicker`) and new categories (`recent`, `terminal`, `editor`, `theme`) across `en` and `pt-BR` locales
+
 ## [Unreleased]
 
 ### Bug Fixes

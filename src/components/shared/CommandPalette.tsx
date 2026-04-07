@@ -36,8 +36,17 @@ import {
   Power,
   RotateCcw,
   Minimize2,
+  Sun,
+  Moon,
+  Monitor,
+  Maximize,
+  WrapText,
+  X,
+  Eraser,
+  SplitSquareVertical,
 } from "lucide-react";
 import { ipc, writeCommandToNewSession } from "../../lib/ipc";
+import { toggleWindowFullscreen } from "../../lib/windowActions";
 import {
   COMMAND_PALETTE_DEFAULT_LAUNCH,
   detectCommandPaletteMode,
@@ -105,6 +114,66 @@ function fuzzyFilter<T>(
 }
 
 /* ------------------------------------------------------------------ */
+/*  Frecency                                                           */
+/* ------------------------------------------------------------------ */
+
+const FRECENCY_STORAGE_KEY = "panes-cmd-palette-frecency";
+const FRECENCY_MAX_ENTRIES = 50;
+
+interface FrecencyEntry {
+  count: number;
+  lastUsed: number;
+}
+type FrecencyMap = Record<string, FrecencyEntry>;
+
+function loadFrecency(): FrecencyMap {
+  try {
+    const raw = localStorage.getItem(FRECENCY_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveFrecency(map: FrecencyMap) {
+  try {
+    const entries = Object.entries(map);
+    if (entries.length > FRECENCY_MAX_ENTRIES) {
+      const now = Date.now();
+      const scored = entries
+        .map(([id, entry]) => ({ id, entry, score: computeFrecencyScore(entry, now) }))
+        .sort((a, b) => b.score - a.score);
+      const pruned: FrecencyMap = {};
+      for (let i = 0; i < FRECENCY_MAX_ENTRIES; i++) pruned[scored[i].id] = scored[i].entry;
+      localStorage.setItem(FRECENCY_STORAGE_KEY, JSON.stringify(pruned));
+      return;
+    }
+    localStorage.setItem(FRECENCY_STORAGE_KEY, JSON.stringify(map));
+  } catch { /* quota errors */ }
+}
+
+function computeFrecencyScore(entry: FrecencyEntry, now: number): number {
+  const daysSinceLastUse = (now - entry.lastUsed) / (1000 * 60 * 60 * 24);
+  return entry.count * Math.pow(0.95, daysSinceLastUse);
+}
+
+function getTopFrecent(map: FrecencyMap, limit: number): string[] {
+  const now = Date.now();
+  return Object.entries(map)
+    .map(([id, entry]) => ({ id, score: computeFrecencyScore(entry, now) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((e) => e.id);
+}
+
+function recordFrecency(commandId: string) {
+  const map = loadFrecency();
+  const existing = map[commandId] ?? { count: 0, lastUsed: 0 };
+  map[commandId] = { count: existing.count + 1, lastUsed: Date.now() };
+  saveFrecency(map);
+}
+
+/* ------------------------------------------------------------------ */
 /*  Sub-flow types                                                     */
 /* ------------------------------------------------------------------ */
 
@@ -117,13 +186,14 @@ type SubFlow =
   | { type: "apply-stash"; query: string; stashes: GitStash[]; loading: boolean }
   | { type: "pop-stash"; query: string; stashes: GitStash[]; loading: boolean }
   | { type: "switch-repo"; query: string }
-  | { type: "codex-rollback"; value: string };
+  | { type: "codex-rollback"; value: string }
+  | { type: "theme-picker"; query: string };
 
 /* ------------------------------------------------------------------ */
 /*  Command registry types                                             */
 /* ------------------------------------------------------------------ */
 
-type CommandGroup = "layout" | "git" | "harness" | "navigation" | "view" | "codex";
+type CommandGroup = "layout" | "git" | "harness" | "navigation" | "view" | "codex" | "terminal" | "editor" | "theme";
 
 interface CommandContext {
   activeWorkspaceId: string | null;
@@ -744,6 +814,144 @@ export function getStaticCommands(
       }
     },
   },
+  // Terminal
+  {
+    id: "new-terminal",
+    label: t("commandPalette.commands.newTerminal"),
+    icon: Plus,
+    group: "terminal",
+    keywords: ["new", "terminal", "shell", "tab", "novo"],
+    shortcut: "\u2318T",
+    action: async ({ activeWorkspaceId, close }) => {
+      close();
+      if (!activeWorkspaceId) return;
+      const ws = useTerminalStore.getState().workspaces[activeWorkspaceId];
+      if (!ws || (ws.layoutMode !== "split" && ws.layoutMode !== "terminal")) {
+        await useTerminalStore.getState().setLayoutMode(activeWorkspaceId, "terminal");
+      }
+      void useTerminalStore.getState().createSession(activeWorkspaceId);
+    },
+  },
+  {
+    id: "split-terminal",
+    label: t("commandPalette.commands.splitTerminal"),
+    icon: SplitSquareVertical,
+    group: "terminal",
+    keywords: ["split", "terminal", "pane", "dividir"],
+    shortcut: "\u2318D",
+    action: async ({ activeWorkspaceId, close }) => {
+      close();
+      if (!activeWorkspaceId) return;
+      const ws = useTerminalStore.getState().workspaces[activeWorkspaceId];
+      if (!ws || (ws.layoutMode !== "split" && ws.layoutMode !== "terminal")) return;
+      const sid = ws.focusedSessionId;
+      if (!sid) return;
+      void useTerminalStore.getState().splitSession(activeWorkspaceId, sid, "vertical");
+    },
+  },
+  {
+    id: "close-terminal",
+    label: t("commandPalette.commands.closeTerminal"),
+    icon: X,
+    group: "terminal",
+    keywords: ["close", "terminal", "kill", "fechar"],
+    action: ({ activeWorkspaceId, close }) => {
+      if (!activeWorkspaceId) return;
+      const ws = useTerminalStore.getState().workspaces[activeWorkspaceId];
+      if (!ws) return;
+      const sid = ws.focusedSessionId;
+      if (sid) void useTerminalStore.getState().closeSession(activeWorkspaceId, sid);
+      close();
+    },
+  },
+  {
+    id: "clear-terminal",
+    label: t("commandPalette.commands.clearTerminal"),
+    icon: Eraser,
+    group: "terminal",
+    keywords: ["clear", "terminal", "reset", "limpar"],
+    action: ({ activeWorkspaceId, close }) => {
+      if (!activeWorkspaceId) return;
+      const ws = useTerminalStore.getState().workspaces[activeWorkspaceId];
+      if (!ws) return;
+      const sid = ws.focusedSessionId;
+      if (sid) void ipc.terminalWrite(activeWorkspaceId, sid, "clear\r");
+      close();
+    },
+  },
+  // Editor
+  {
+    id: "open-file",
+    label: t("commandPalette.commands.openFile"),
+    icon: File,
+    group: "editor",
+    keywords: ["open", "file", "search", "abrir", "arquivo"],
+    shortcut: "\u2318P",
+    action: () => {
+      useUiStore.getState().openCommandPalette({ initialQuery: "%" });
+    },
+  },
+  {
+    id: "close-tab",
+    label: t("commandPalette.commands.closeTab"),
+    icon: X,
+    group: "editor",
+    keywords: ["close", "tab", "file", "fechar", "aba"],
+    shortcut: "\u2318W",
+    action: ({ close }) => {
+      const fileState = useFileStore.getState();
+      const activeTabId = fileState.activeTabId;
+      if (activeTabId) fileState.closeTab(activeTabId);
+      close();
+    },
+  },
+  {
+    id: "close-all-tabs",
+    label: t("commandPalette.commands.closeAllTabs"),
+    icon: X,
+    group: "editor",
+    keywords: ["close", "all", "tabs", "fechar", "todas", "abas"],
+    action: ({ close }) => {
+      const fileState = useFileStore.getState();
+      for (const tab of fileState.tabs) fileState.closeTab(tab.id);
+      close();
+    },
+  },
+  {
+    id: "toggle-word-wrap",
+    label: t("commandPalette.commands.toggleWordWrap"),
+    icon: WrapText,
+    group: "editor",
+    keywords: ["word", "wrap", "line", "quebra", "linha"],
+    action: ({ close }) => {
+      close();
+      toast.success(t("commandPalette.toasts.wordWrapToggled"));
+    },
+  },
+  // Layout — additional
+  {
+    id: "fullscreen",
+    label: t("commandPalette.commands.fullscreen"),
+    icon: Maximize,
+    group: "layout",
+    keywords: ["fullscreen", "maximize", "full", "tela", "cheia"],
+    shortcut: "F11",
+    action: async ({ close }) => {
+      close();
+      await toggleWindowFullscreen();
+    },
+  },
+  // Theme
+  {
+    id: "theme-picker",
+    label: t("commandPalette.commands.themePicker"),
+    icon: Sun,
+    group: "theme",
+    keywords: ["theme", "dark", "light", "system", "tema", "escuro", "claro"],
+    action: ({ openSubFlow }) => {
+      openSubFlow({ type: "theme-picker", query: "" });
+    },
+  },
   ];
 }
 
@@ -990,8 +1198,20 @@ export function CommandPalette({ open, onClose }: Props) {
   const [messageError, setMessageError] = useState<string | null>(null);
   const [showFilesInAuto, setShowFilesInAuto] = useState(false);
   const [showThreadsInAuto, setShowThreadsInAuto] = useState(false);
+  const [closing, setClosing] = useState(false);
+
+  const frecencyRef = useRef<FrecencyMap>(loadFrecency());
 
   const fileCacheRef = useRef<Map<string, FileTreeEntry[]>>(new Map());
+
+  // Animated close
+  const animatedClose = useCallback(() => {
+    setClosing(true);
+    setTimeout(() => {
+      setClosing(false);
+      onClose();
+    }, 100);
+  }, [onClose]);
 
   // Store selectors
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
@@ -1052,10 +1272,10 @@ export function CommandPalette({ open, onClose }: Props) {
       activeWorkspaceId,
       activeRepoPath,
       repos,
-      close: onClose,
+      close: animatedClose,
       openSubFlow: setSubFlow,
     }),
-    [activeWorkspaceId, activeRepoPath, repos, onClose],
+    [activeWorkspaceId, activeRepoPath, repos, animatedClose],
   );
 
   // Available commands filtered by context
@@ -1463,6 +1683,24 @@ export function CommandPalette({ open, onClose }: Props) {
         }
         return [{ label: t("commandPalette.group.switchRepo"), items }];
       }
+      if (subFlow.type === "theme-picker") {
+        const themes = [
+          { label: t("commandPalette.commands.themeSystem"), id: "system" },
+          { label: t("commandPalette.commands.themeLight"), id: "light" },
+          { label: t("commandPalette.commands.themeDark"), id: "dark" },
+        ];
+        const filtered = subFlow.query
+          ? themes.filter((th) => th.label.toLowerCase().includes(subFlow.query.toLowerCase()))
+          : themes;
+        return [{
+          label: t("commandPalette.group.theme"),
+          items: filtered.map((th) => ({
+            type: "sub-action" as const,
+            label: th.label,
+            description: th.id,
+          })),
+        }];
+      }
     }
 
     if (mode === "search") {
@@ -1558,6 +1796,16 @@ export function CommandPalette({ open, onClose }: Props) {
     if (mode === "default") {
       const result: ResultGroup[] = [];
 
+      // Frecent commands (recently/frequently used)
+      const frecentIds = getTopFrecent(frecencyRef.current, 5);
+      const frecentItems: ResultItem[] = frecentIds
+        .map((id) => availableCommands.find((c) => c.id === id))
+        .filter((c): c is CommandEntry => !!c)
+        .map((c) => ({ type: "command", entry: c }));
+      if (frecentItems.length > 0) {
+        result.push({ label: t("commandPalette.group.recent"), items: frecentItems });
+      }
+
       // Quick actions
       const quickIds = [
         "layout-chat",
@@ -1618,7 +1866,10 @@ export function CommandPalette({ open, onClose }: Props) {
         { key: "layout", label: t("commandPalette.group.layout") },
         { key: "navigation", label: t("commandPalette.group.navigation") },
         { key: "git", label: t("commandPalette.group.git") },
+        { key: "terminal", label: t("commandPalette.group.terminal") },
+        { key: "editor", label: t("commandPalette.group.editor") },
         { key: "view", label: t("commandPalette.group.views") },
+        { key: "theme", label: t("commandPalette.group.theme") },
         { key: "harness", label: t("commandPalette.group.agents") },
       ];
 
@@ -1844,6 +2095,9 @@ export function CommandPalette({ open, onClose }: Props) {
       switch (item.type) {
         case "command": {
           const cmd = item.entry;
+          // Record frecency
+          recordFrecency(cmd.id);
+          frecencyRef.current = loadFrecency();
           // Special: switch-thread / switch-workspace set the query prefix
           if (cmd.id === "switch-thread") {
             setQuery("@");
@@ -1863,7 +2117,7 @@ export function CommandPalette({ open, onClose }: Props) {
           break;
         }
         case "file": {
-          onClose();
+          animatedClose();
           if (activeWorkspaceRootPath) {
             await useFileStore.getState().openFile(activeWorkspaceRootPath, item.entry.path);
             if (activeWorkspaceId) {
@@ -1882,22 +2136,22 @@ export function CommandPalette({ open, onClose }: Props) {
           await useChatStore.getState().setActiveThread(thread.id);
           useTerminalStore.getState().restoreThreadGroup(thread.workspaceId, thread.id);
           useUiStore.getState().setActiveView("chat");
-          onClose();
+          animatedClose();
           break;
         }
         case "workspace": {
-          onClose();
+          animatedClose();
           await useWorkspaceStore.getState().setActiveWorkspace(item.entry.id);
           break;
         }
         case "harness": {
-          onClose();
+          animatedClose();
           await launchHarness(item.entry);
           break;
         }
         case "branch": {
           if (subFlow?.type === "delete-branch") {
-            onClose();
+            animatedClose();
             if (activeRepoPath) {
               try {
                 await useGitStore.getState().deleteBranch(activeRepoPath, item.entry.name, false);
@@ -1907,7 +2161,7 @@ export function CommandPalette({ open, onClose }: Props) {
               }
             }
           } else {
-            onClose();
+            animatedClose();
             if (activeRepoPath) {
               try {
                 await useGitStore.getState().checkoutBranch(activeRepoPath, item.entry.name, item.entry.isRemote);
@@ -1920,7 +2174,7 @@ export function CommandPalette({ open, onClose }: Props) {
           break;
         }
         case "stash": {
-          onClose();
+          animatedClose();
           if (activeRepoPath) {
             const action = subFlow?.type === "pop-stash" ? "pop" : "apply";
             try {
@@ -1938,12 +2192,12 @@ export function CommandPalette({ open, onClose }: Props) {
           break;
         }
         case "repo": {
-          onClose();
+          animatedClose();
           useWorkspaceStore.getState().setActiveRepo(item.entry.id);
           break;
         }
         case "send-message": {
-          onClose();
+          animatedClose();
           if (activeThreadId) {
             await useChatStore.getState().send(item.query);
           }
@@ -1954,7 +2208,7 @@ export function CommandPalette({ open, onClose }: Props) {
           break;
       }
     },
-    [commandCtx, activeWorkspaceRootPath, activeWorkspaceId, activeThreadId, onClose, launchHarness, openMessageResult, subFlow, t],
+    [commandCtx, activeWorkspaceRootPath, activeWorkspaceId, activeThreadId, animatedClose, launchHarness, openMessageResult, subFlow, t],
   );
 
   const executeSubFlow = useCallback(async () => {
@@ -1977,7 +2231,7 @@ export function CommandPalette({ open, onClose }: Props) {
 
     if (subFlow.type === "create-branch") {
       if (subFlow.value.length === 0 || /\s/.test(subFlow.value)) return;
-      onClose();
+      animatedClose();
       try {
         await useGitStore.getState().createBranch(activeRepoPath, subFlow.value);
         toast.success(t("commandPalette.toasts.branchCreated", { name: subFlow.value }));
@@ -1994,7 +2248,7 @@ export function CommandPalette({ open, onClose }: Props) {
         toast.warning(t("commandPalette.toasts.noStagedFilesToCommit"));
         return;
       }
-      onClose();
+      animatedClose();
       try {
         await useGitStore.getState().commit(activeRepoPath, subFlow.value);
         toast.success(t("commandPalette.toasts.committed"));
@@ -2005,7 +2259,7 @@ export function CommandPalette({ open, onClose }: Props) {
     }
 
     if (subFlow.type === "stash") {
-      onClose();
+      animatedClose();
       try {
         await useGitStore.getState().pushStash(activeRepoPath, subFlow.value || undefined);
         toast.success(t("commandPalette.toasts.changesStashed"));
@@ -2018,7 +2272,7 @@ export function CommandPalette({ open, onClose }: Props) {
     if (subFlow.type === "codex-rollback") {
       const numTurns = Number.parseInt(subFlow.value, 10);
       if (!Number.isFinite(numTurns) || numTurns < 1) return;
-      onClose();
+      animatedClose();
       const { activeThreadId, rollbackCodexThread } = useThreadStore.getState();
       if (!activeThreadId) return;
       try {
@@ -2032,7 +2286,29 @@ export function CommandPalette({ open, onClose }: Props) {
       }
       return;
     }
-  }, [subFlow, activeRepoPath, onClose, flatItems, activeIndex, executeItem, t]);
+
+    if (subFlow.type === "theme-picker") {
+      const selected = flatItems[activeIndex];
+      if (selected?.type === "sub-action" && selected.description) {
+        animatedClose();
+        const themeId = selected.description;
+        try {
+          localStorage.setItem("panes:theme", themeId);
+          if (themeId === "dark") {
+            document.documentElement.classList.add("dark");
+            document.documentElement.classList.remove("light");
+          } else if (themeId === "light") {
+            document.documentElement.classList.add("light");
+            document.documentElement.classList.remove("dark");
+          } else {
+            document.documentElement.classList.remove("light", "dark");
+          }
+          toast.success(t("commandPalette.toasts.themeChanged"));
+        } catch { /* ignore */ }
+      }
+      return;
+    }
+  }, [subFlow, activeRepoPath, animatedClose, flatItems, activeIndex, executeItem, t]);
 
   /* ---- Keyboard handler ---- */
 
@@ -2045,7 +2321,7 @@ export function CommandPalette({ open, onClose }: Props) {
           setQuery("");
           setActiveIndex(0);
         } else {
-          onClose();
+          animatedClose();
         }
         return;
       }
@@ -2086,7 +2362,7 @@ export function CommandPalette({ open, onClose }: Props) {
         return;
       }
     },
-    [flatItems, activeIndex, subFlow, query, onClose, executeItem, executeSubFlow, mode, term],
+    [flatItems, activeIndex, subFlow, query, animatedClose, executeItem, executeSubFlow, mode, term],
   );
 
   /* ---- Input change handler ---- */
@@ -2111,6 +2387,8 @@ export function CommandPalette({ open, onClose }: Props) {
           setSubFlow({ ...subFlow, query: value });
         } else if (subFlow.type === "switch-repo") {
           setSubFlow({ ...subFlow, query: value });
+        } else if (subFlow.type === "theme-picker") {
+          setSubFlow({ ...subFlow, query: value });
         }
         setActiveIndex(0);
       } else {
@@ -2134,6 +2412,7 @@ export function CommandPalette({ open, onClose }: Props) {
       if (subFlow.type === "apply-stash") return subFlow.query;
       if (subFlow.type === "pop-stash") return subFlow.query;
       if (subFlow.type === "switch-repo") return subFlow.query;
+      if (subFlow.type === "theme-picker") return subFlow.query;
     }
     if (mode === "search") return term;
     return query;
@@ -2150,6 +2429,7 @@ export function CommandPalette({ open, onClose }: Props) {
       if (subFlow.type === "apply-stash") return t("commandPalette.placeholders.applyStash");
       if (subFlow.type === "pop-stash") return t("commandPalette.placeholders.popStash");
       if (subFlow.type === "switch-repo") return t("commandPalette.placeholders.switchRepo");
+      if (subFlow.type === "theme-picker") return t("commandPalette.placeholders.themePicker");
     }
     if (mode === "search") {
       return t("commandPalette.placeholders.search");
@@ -2170,6 +2450,7 @@ export function CommandPalette({ open, onClose }: Props) {
         "pop-stash": t("commandPalette.subFlow.popStash"),
         "switch-repo": t("commandPalette.subFlow.switchRepo"),
         "codex-rollback": t("commandPalette.subFlow.codexRollback"),
+        "theme-picker": t("commandPalette.subFlow.themePicker"),
       };
       return <span style={STYLES.modeBadge}>{labels[subFlow.type]}</span>;
     }
@@ -2415,9 +2696,9 @@ export function CommandPalette({ open, onClose }: Props) {
   let flatIndex = 0;
 
   return createPortal(
-    <div style={STYLES.backdrop} onClick={onClose}>
+    <div style={STYLES.backdrop} className={closing ? "cmd-palette-exit-backdrop" : ""} onClick={animatedClose}>
       <div
-        className="surface"
+        className={`surface${closing ? " cmd-palette-exit" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"

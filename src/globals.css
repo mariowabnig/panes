@@ -601,6 +601,23 @@ button, input, textarea, select {
   50% { box-shadow: 0 0 20px rgba(255, 107, 107, 0.3); }
 }
 
+@keyframes cmd-palette-exit {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.97); }
+}
+.cmd-palette-exit {
+  animation: cmd-palette-exit 100ms cubic-bezier(0.4, 0, 1, 1) both;
+  pointer-events: none;
+}
+.cmd-palette-exit-backdrop {
+  animation: fade-out-fast 100ms ease-out both;
+  pointer-events: none;
+}
+@keyframes fade-out-fast {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
 /* ── Onboarding ── */
 
 .ob-interactive {

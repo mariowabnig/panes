@@ -120,7 +120,20 @@
       "codexFork": "Fork Codex Thread",
       "codexCompact": "Compact Codex Thread",
       "codexRollback": "Rollback Codex Thread",
-      "codexReview": "Start Codex Review"
+      "codexReview": "Start Codex Review",
+      "newTerminal": "New Terminal Tab",
+      "splitTerminal": "Split Terminal",
+      "closeTerminal": "Close Terminal",
+      "clearTerminal": "Clear Terminal",
+      "openFile": "Open File",
+      "closeTab": "Close Tab",
+      "closeAllTabs": "Close All Tabs",
+      "toggleWordWrap": "Toggle Word Wrap",
+      "fullscreen": "Toggle Fullscreen",
+      "themePicker": "Change Theme...",
+      "themeSystem": "System (Auto)",
+      "themeLight": "Light",
+      "themeDark": "Dark"
     },
     "descriptions": {
       "switchThread": "Browse recent threads",
@@ -147,7 +160,11 @@
       "launchAgent": "Launch Agent",
       "recentThreads": "Recent Threads",
       "views": "Views",
-      "switchRepo": "Switch Repo"
+      "switchRepo": "Switch Repo",
+      "recent": "Recent",
+      "terminal": "Terminal",
+      "editor": "Editor",
+      "theme": "Theme"
     },
     "status": {
       "loadingBranches": "Loading branches...",
@@ -180,7 +197,8 @@
       "applyStash": "apply stash",
       "popStash": "pop stash",
       "switchRepo": "repo",
-      "codexRollback": "rollback"
+      "codexRollback": "rollback",
+      "themePicker": "theme"
     },
     "preview": {
       "createBranchReady": "Create branch \"{{name}}\"",
@@ -207,6 +225,7 @@
       "popStash": "Search stashes...",
       "switchRepo": "Search repos...",
       "codexRollback": "Number of turns to roll back...",
+      "themePicker": "Search themes...",
       "search": "Search messages, files, or threads...",
       "fileMode": "Search files...",
       "auto": "Search files, commands, threads..."
@@ -284,7 +303,9 @@
       "codexForked": "Created a new forked Codex thread.",
       "codexCompacted": "Started Codex thread compaction.",
       "codexRolledBack": "Created a rollback branch ({{count}} turns removed).",
-      "codexReviewStarted": "Started an inline Codex review."
+      "codexReviewStarted": "Started an inline Codex review.",
+      "wordWrapToggled": "Word wrap toggled.",
+      "themeChanged": "Theme changed."
     }
   },
   "terminal": {
