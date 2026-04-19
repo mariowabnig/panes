@@ -504,6 +504,14 @@ fn resolve_target_path_for_repo_lookup(
 /// Save raw image bytes (from clipboard paste) to a temp file and return the path.
 #[tauri::command]
 pub async fn save_clipboard_image(data: Vec<u8>, mime_type: String) -> Result<String, String> {
+    const MAX_CLIPBOARD_IMAGE_BYTES: usize = 20 * 1024 * 1024;
+    if data.len() > MAX_CLIPBOARD_IMAGE_BYTES {
+        return Err(format!(
+            "clipboard image too large: {} bytes (max {})",
+            data.len(),
+            MAX_CLIPBOARD_IMAGE_BYTES
+        ));
+    }
     tokio::task::spawn_blocking(move || {
         let ext = match mime_type.as_str() {
             "image/png" => "png",

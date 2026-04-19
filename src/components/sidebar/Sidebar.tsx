@@ -16,7 +16,6 @@ import {
   Settings,
   Pencil,
   Pin,
-  PinOff,
   PanelLeftClose,
   PanelLeftOpen,
   Search,
@@ -60,7 +59,6 @@ import { useHarnessStore } from "../../stores/harnessStore";
 import { writeCommandToNewSession } from "../../lib/ipc";
 import { getThreadUserStatus } from "../../stores/threadStore";
 import type { Thread, Workspace, WorkspaceStartupWorktreeConfig } from "../../types";
-import type { ThreadUserStatus } from "../../types";
 
 interface ProjectGroup {
   workspace: Workspace;
@@ -109,7 +107,6 @@ function SidebarContent({ onPin }: { onPin?: () => void }) {
     setActiveThread,
     removeThread,
     restoreThread,
-    createThread,
     renameThread,
     refreshArchivedThreads,
     setThreadUserStatus,

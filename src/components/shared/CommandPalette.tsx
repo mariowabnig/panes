@@ -1231,6 +1231,9 @@ export function CommandPalette({ open, onClose }: Props) {
     setClosing(true);
     setTimeout(() => {
       setClosing(false);
+      setScopedRepo(null);
+      setScopedGitStatus(null);
+      setPendingCommandId(null);
       onClose();
     }, 100);
   }, [onClose]);
@@ -2308,8 +2311,11 @@ export function CommandPalette({ open, onClose }: Props) {
               const scopedCtx: CommandContext = {
                 ...commandCtx,
                 activeRepoPath: pickedRepo.path,
+                repos: activeGitRepos.filter((r) => r.id === item.entry.id),
               };
               await cmd.action(scopedCtx);
+            } else {
+              animatedClose();
             }
           } else {
             animatedClose();
@@ -2428,6 +2434,8 @@ export function CommandPalette({ open, onClose }: Props) {
           }
           toast.success(t("commandPalette.toasts.themeChanged"));
         } catch { /* ignore */ }
+      } else {
+        animatedClose();
       }
       return;
     }
