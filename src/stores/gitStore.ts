@@ -76,7 +76,7 @@ function addToHistory(history: string[], entry: string): string[] {
   return [trimmed, ...deduped].slice(0, DRAFT_HISTORY_MAX);
 }
 
-export type GitPanelView = "changes" | "branches" | "commits" | "stash" | "files" | "worktrees";
+export type GitPanelView = "changes" | "branches" | "commits" | "stash" | "worktrees";
 export type GitRemoteSyncAction = "fetch" | "pull" | "push";
 
 interface GitStatusCacheEntry {
@@ -418,6 +418,7 @@ interface GitState {
   addRemote: (repoPath: string, name: string, url: string) => Promise<void>;
   removeRemote: (repoPath: string, name: string) => Promise<void>;
   renameRemote: (repoPath: string, oldName: string, newName: string) => Promise<void>;
+  getStatusForRepo: (repoPath: string) => Promise<GitStatus>;
   clearError: () => void;
   drafts: GitDraftsPayload;
   loadDraftsForWorkspace: (workspaceId: string) => void;
@@ -1091,6 +1092,7 @@ export const useGitStore = create<GitState>((set, get) => {
       });
       await get().loadRemotes(repoPath);
     },
+    getStatusForRepo: (repoPath) => getGitStatusCached(repoPath),
     clearError: () => set({ error: undefined }),
     drafts: { ...EMPTY_DRAFTS },
     loadDraftsForWorkspace: (workspaceId) => {

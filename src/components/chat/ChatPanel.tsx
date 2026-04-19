@@ -111,9 +111,9 @@ const LazyTerminalPanel = lazy(() =>
     default: module.TerminalPanel,
   })),
 );
-const LazyFileEditorPanel = lazy(() =>
-  import("../editor/FileEditorPanel").then((module) => ({
-    default: module.FileEditorPanel,
+const LazyEditorWithExplorer = lazy(() =>
+  import("../editor/EditorWithExplorer").then((module) => ({
+    default: module.EditorWithExplorer,
   })),
 );
 
@@ -1406,6 +1406,7 @@ export function ChatPanel() {
   const showSidebar = useUiStore((s) => s.showSidebar);
   const enterToSend = useUiStore((s) => s.enterToSend);
   const toggleEnterToSend = useUiStore((s) => s.toggleEnterToSend);
+
   const isMac = isMacDesktop();
   const customWindowFrame = usesCustomWindowFrame();
   const useTitlebarSafeInset = isMac && focusMode && !showSidebar;
@@ -5752,12 +5753,12 @@ export function ChatPanel() {
                     fontSize: 12,
                     color: "var(--text-3)",
                   }}
-                  >
-                    {t("panel.loadingEditor")}
-                  </div>
-                }
-              >
-              <LazyFileEditorPanel />
+                >
+                  {t("panel.loadingEditor")}
+                </div>
+              }
+            >
+              <LazyEditorWithExplorer />
             </Suspense>
           )}
         </div>

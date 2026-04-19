@@ -24,6 +24,70 @@
 * **copilot:** implement full sidecar protocol — typed NDJSON events, streaming chat, agentic tool use with approval flow, token caching, and cancel/approval_response routing
 * **chat:** expose Claude skills in the slash menu — `list_claude_skills` Rust command reads `~/.claude/skills/*/SKILL.md` frontmatter; selecting a skill sets and auto-submits `/skillname`
 
+## [](https://github.com/wygoralves/panes/compare/v0.54.0...vnull) (2026-04-09)
+
+### Bug Fixes
+
+* **sidebar:** fix missing separator between actions and workspaces ([9a25f16](https://github.com/wygoralves/panes/commit/9a25f164548393b12f57b8a15fb4f981e2bf893e))
+* **sidebar:** fix visuals of the rail sidebar ([589ccc6](https://github.com/wygoralves/panes/commit/589ccc6647035e187800445088afd9fe3b227b7b))
+
+## [](https://github.com/wygoralves/panes/compare/v0.53.0...vnull) (2026-04-09)
+
+### Features
+
+* **sidebar:** add shortcut actions and hints ([ca73839](https://github.com/wygoralves/panes/commit/ca738390c08e6e7a743edc018932291c1dc0154d))
+* **sidebar:** refresh workspace navigation ([e698847](https://github.com/wygoralves/panes/commit/e698847b3fd3b52de8c6d20d63d085083ccb57a3))
+
+### Bug Fixes
+
+* **chat:** preserve layout on new thread ([2aad6ec](https://github.com/wygoralves/panes/commit/2aad6ec946aa33e4427af88fabb8f4fde21859bc))
+* **explorer:** cancel stale scheduled refreshes ([cdd5a6e](https://github.com/wygoralves/panes/commit/cdd5a6e6d14fba0e837fe6c67ece7cbfe19fa8da))
+* **explorer:** refresh stale directory state ([4cda120](https://github.com/wygoralves/panes/commit/4cda120f469afa2bdd830392c7c8792b8d853d55))
+* **git:** align panel pin icon ([8df1334](https://github.com/wygoralves/panes/commit/8df133432acbf9721a5be9ccf31e92ce96f5e056))
+* **sidebar:** constrain expanded thread lists ([f9e9219](https://github.com/wygoralves/panes/commit/f9e9219cf2f0bb212fd647aa33cae061ab19e3d2))
+* **sidebar:** open search palette from nav ([9f0abe4](https://github.com/wygoralves/panes/commit/9f0abe4aefbd65f4d1b156853752987a68d7bc58))
+* **ui:** refine sidebar thread actions ([9ca2acc](https://github.com/wygoralves/panes/commit/9ca2acc84993261d122ab3d5871065237aa68e74))
+
+## [](https://github.com/wygoralves/panes/compare/v0.52.0...vnull) (2026-04-09)
+
+### Features
+
+* **editor:** add collapsible file explorer ([4521fda](https://github.com/wygoralves/panes/commit/4521fdad8faf15dadd1efabce0519d73b379c3bf))
+* **editor:** add contextual menu for actions and bulk actions in file explorer ([4358fc4](https://github.com/wygoralves/panes/commit/4358fc47a6615e5a6796a6311a4d9e98c9beb4f0))
+* **editor:** adjust plus button positioning on the file explorer ([e36601c](https://github.com/wygoralves/panes/commit/e36601c914bcffb10ee9d2fcd731471d5e37e56e))
+* **editor:** open files in the default app ([b37cd82](https://github.com/wygoralves/panes/commit/b37cd823876e73f2da166f13f534ab9f2943c7ba))
+
+### Bug Fixes
+
+* **editor:** hide empty button container ([df4787a](https://github.com/wygoralves/panes/commit/df4787af985b0dec25c451e2bdcd8503c76bdff0))
+* **editor:** show external open action for all files ([9940e1e](https://github.com/wygoralves/panes/commit/9940e1e46764ab85bd033d141489da3074413c0e))
+* **editor:** stabilize explorer routing and state ([696bd42](https://github.com/wygoralves/panes/commit/696bd4226f4e1e87fc006a2ddd10f5d07f664c45))
+* **explorer:** address final review findings ([9d38ddb](https://github.com/wygoralves/panes/commit/9d38ddb8b5ad04c021ba8f9fbea477731f99ea0b))
+* **filesystem:** reject unresolved create paths ([f079d2e](https://github.com/wygoralves/panes/commit/f079d2e5b97a5ba8479aeb987261832dcd81c779))
+
+## [](https://github.com/wygoralves/panes/compare/v0.51.4...vnull) (2026-04-08)
+
+### Features
+
+* **commandpalette:** improve multi repo handling in git operations ([272a24b](https://github.com/wygoralves/panes/commit/272a24b3405d5acb3ffd0c58c436983c7d499efb))
+* **git:** add Fetch All and Pull All for multi-repo mode ([36223a2](https://github.com/wygoralves/panes/commit/36223a2d97bd3eb11cb1dde595782bb2e83ed8d8))
+* **git:** add MultiRepoChangesView with accordion pattern ([612e17e](https://github.com/wygoralves/panes/commit/612e17ec01dc30b053cd08c0305797103a796f21))
+* **git:** add per-repo more menu with pull, push, undo last commit ([d420a0d](https://github.com/wygoralves/panes/commit/d420a0dec458358fed04dfa7d86b98842ffdbfd9))
+
+### Bug Fixes
+
+* **git:** address Codex review — stale status, directory discard, per-repo commit ([b7dd34b](https://github.com/wygoralves/panes/commit/b7dd34b7ea3e583aae7f0b2888e261d6f229c298))
+* **git:** align more menu in multi-repo mode and spin RefreshCw during fetch all ([6a19871](https://github.com/wygoralves/panes/commit/6a1987150216569ec40d94c50c9983c509adab3e))
+* **git:** hide branch meta and repo picker in multi-repo changes mode ([9356bd7](https://github.com/wygoralves/panes/commit/9356bd7a97919b0d960a8f7962957f7ce671e203))
+* **git:** keep multi-repo changes view in sync ([54e6539](https://github.com/wygoralves/panes/commit/54e65391fd4f366a1218170813e3ebb033cf9bad))
+* **gitpanel:** restrict repo-scoped git picker to active repos only ([d189e9d](https://github.com/wygoralves/panes/commit/d189e9d105a3d5d9fd7c23e6390635b76ebcd57a))
+
+## [](https://github.com/wygoralves/panes/compare/v0.51.3...vnull) (2026-04-05)
+
+### Bug Fixes
+
+* **gitpanel:** fix git panel collapsing incorrectly in some scenarios ([03d6ec1](https://github.com/wygoralves/panes/commit/03d6ec16330d135627e0bfc410f29dd5b495e352))
+
 ## [](https://github.com/wygoralves/panes/compare/v0.51.2...vnull) (2026-04-01)
 
 ### Bug Fixes
