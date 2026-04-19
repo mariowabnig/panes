@@ -17,9 +17,7 @@ export async function createAndActivateWorkspaceThread(
   const activeWorkspaceId = workspaceStore.activeWorkspaceId;
   const terminalStore = useTerminalStore.getState();
   const currentLayoutMode =
-    (activeWorkspaceId
-      ? terminalStore.workspaces[activeWorkspaceId]?.layoutMode
-      : terminalStore.workspaces[workspaceId]?.layoutMode) ?? null;
+    terminalStore.workspaces[workspaceId]?.layoutMode ?? null;
   const targetLayoutMode = resolveNewThreadTargetLayoutMode(currentLayoutMode);
 
   useUiStore.getState().setActiveView("chat");

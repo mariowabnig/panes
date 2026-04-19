@@ -528,30 +528,40 @@ export function FileExplorer() {
 
       for (const entry of children) {
         const name = entryName(entry);
+        const nameMatches = !lowerFilter || name.toLowerCase().includes(lowerFilter);
 
         if (entry.isDir) {
           const expanded = expandedDirs.has(entry.path);
 
-          if (lowerFilter && !name.toLowerCase().includes(lowerFilter)) {
-            if (!expanded) continue;
-          }
-
-          result.push({
-            type: "dir",
-            key: `dir:${entry.path}`,
-            name,
-            path: entry.path,
-            depth,
-            expanded,
-          });
-
-          if (expanded) {
+          if (lowerFilter) {
+            const headerIdx = result.length;
+            result.push({
+              type: "dir",
+              key: `dir:${entry.path}`,
+              name,
+              path: entry.path,
+              depth,
+              expanded: true,
+            });
             visitDir(entry.path, depth + 1);
+            if (!nameMatches && result.length === headerIdx + 1) {
+              result.pop();
+            }
+          } else {
+            result.push({
+              type: "dir",
+              key: `dir:${entry.path}`,
+              name,
+              path: entry.path,
+              depth,
+              expanded,
+            });
+            if (expanded) {
+              visitDir(entry.path, depth + 1);
+            }
           }
         } else {
-          if (lowerFilter && !name.toLowerCase().includes(lowerFilter)) {
-            continue;
-          }
+          if (!nameMatches) continue;
 
           result.push({
             type: "file",
